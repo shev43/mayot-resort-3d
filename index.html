@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAYOT Resort — 3D BIM Viewer</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="loading">
+        <div class="loader-content">
+            <h2>MAYOT RESORT</h2>
+            <p>Завантаження 3D моделі...</p>
+            <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        </div>
+    </div>
+
+    <div id="viewer-container"></div>
+
+    <!-- Top bar -->
+    <div id="top-bar">
+        <div class="logo">MAYOT RESORT <span class="subtitle">Яремче · Карпати · 3D BIM</span></div>
+        <div class="controls-top">
+            <button class="btn active" data-view="all">Всі стадії</button>
+            <button class="btn" data-view="s1a">Stage 1A</button>
+            <button class="btn" data-view="s2">Stage 2</button>
+            <button class="btn" data-view="s3">Stage 3</button>
+        </div>
+    </div>
+
+    <!-- Info panel -->
+    <div id="info-panel" class="panel hidden">
+        <button class="close-btn" id="closeInfo">&times;</button>
+        <h3 id="infoTitle">—</h3>
+        <div id="infoContent"></div>
+    </div>
+
+    <!-- Legend -->
+    <div id="legend" class="panel">
+        <h4>Легенда</h4>
+        <div class="legend-item"><span class="swatch" style="background:#2B5C3F"></span> Stage 1A — SPA Retreat (30 keys)</div>
+        <div class="legend-item"><span class="swatch" style="background:#C4A882"></span> Stage 2 — Mountain Lodge (48 keys)</div>
+        <div class="legend-item"><span class="swatch" style="background:#9B8E7E"></span> Stage 3 — Family Resort (135 keys)</div>
+        <div class="legend-item"><span class="swatch" style="background:#4A90D9"></span> Водні об'єкти</div>
+        <div class="legend-item"><span class="swatch" style="background:#E8DFD5"></span> Amenities / F&B</div>
+        <div class="legend-item"><span class="swatch" style="background:#666"></span> Service (LEFT spine)</div>
+        <hr>
+        <label><input type="checkbox" id="toggleContours" checked> Горизонталі 10м</label>
+        <label><input type="checkbox" id="toggleLabels" checked> Підписи висот</label>
+        <label><input type="checkbox" id="toggleTrees" checked> Дерева</label>
+        <label><input type="checkbox" id="toggleZones" checked> Зони L/C/R</label>
+    </div>
+
+    <!-- Stats -->
+    <div id="stats-panel" class="panel">
+        <h4>Параметри ділянки</h4>
+        <div class="stat-row"><span>Площа:</span><span>4.8 га (48,000 м²)</span></div>
+        <div class="stat-row"><span>Розмір:</span><span>~186 × 421 м</span></div>
+        <div class="stat-row"><span>Перепад:</span><span>80 м (920–1000 м)</span></div>
+        <div class="stat-row"><span>Ухил:</span><span>~20%</span></div>
+        <div class="stat-row"><span>Всього keys:</span><span>213</span></div>
+        <div class="stat-row"><span>Sellable:</span><span>11,747 м²</span></div>
+        <div class="stat-row"><span>Паркінг:</span><span>265 місць</span></div>
+    </div>
+
+    <!-- Compass -->
+    <div id="compass">
+        <div class="compass-ring">
+            <span class="compass-n">N</span>
+            <span class="compass-s">S</span>
+            <span class="compass-e">E</span>
+            <span class="compass-w">W</span>
+            <div class="compass-needle" id="compassNeedle"></div>
+        </div>
+    </div>
+
+    <!-- Altitude indicator -->
+    <div id="altitude-bar">
+        <div class="alt-label">1000м</div>
+        <div class="alt-gradient"></div>
+        <div class="alt-label">920м</div>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module" src="js/viewer.js"></script>
+</body>
+</html>
