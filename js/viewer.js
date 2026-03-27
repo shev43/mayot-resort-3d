@@ -2216,6 +2216,10 @@ async function init() {
     buildPardorama();
     updateProgress(80);
 
+    // Access road to H-09
+    // Road loads on-demand (toggle checkbox)
+    updateProgress(85);
+
     // Build trees
     treeGroup = buildTrees();
     scene.add(treeGroup);
@@ -3427,6 +3431,376 @@ function buildEntryGates(baseElev) {
 }
 
 // ============================================================
+// TERRAIN ORTHOPHOTO (satellite imagery draped on terrain)
+// ============================================================
+async function buildTerrainOrtho() {
+    const group = new THREE.Group();
+    group.name = 'Terrain_Ortho';
+
+    let orthoData;
+    try {
+        const resp = await fetch('js/data/terrain_ortho.json');
+        orthoData = await resp.json();
+    } catch (e) {
+        console.warn('terrain_ortho.json not found');
+        return group;
+    }
+
+    const loader = new THREE.TextureLoader();
+    let loaded = 0;
+    const segs = 8; // 8x8 subdivisions for smooth terrain draping
+
+    for (const tile of orthoData.tiles) {
+        try {
+            const tex = await new Promise((resolve, reject) => {
+                loader.load(tile.file, resolve, undefined, reject);
+            });
+            tex.minFilter = THREE.LinearFilter;
+            tex.magFilter = THREE.LinearFilter;
+
+            // Build terrain-draped mesh
+            const verts = [];
+            const uvArr = [];
+            const idxArr = [];
+
+            for (let iy = 0; iy <= segs; iy++) {
+                for (let ix = 0; ix <= segs; ix++) {
+                    const fx = ix / segs;
+                    const fz = iy / segs;
+                    const px = tile.x0 + fx * (tile.x1 - tile.x0);
+                    const pz = tile.z0 + fz * (tile.z1 - tile.z0);
+                    const py = sampleTerrainY(px, pz) + 1.0; // 1m above terrain
+                    verts.push(px, py, pz);
+                    uvArr.push(fx, 1 - fz);
+                }
+            }
+
+            for (let iy = 0; iy < segs; iy++) {
+                for (let ix = 0; ix < segs; ix++) {
+                    const a = iy * (segs+1) + ix;
+                    const b = a + 1;
+                    const c = a + (segs+1);
+                    const dd = c + 1;
+                    idxArr.push(a, c, b);
+                    idxArr.push(b, c, dd);
+                }
+            }
+
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+            geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvArr, 2));
+            geo.setIndex(idxArr);
+            geo.computeVertexNormals();
+
+            const mat = new THREE.MeshBasicMaterial({
+                map: tex, side: THREE.DoubleSide,
+                polygonOffset: true,
+                polygonOffsetFactor: -1,
+                polygonOffsetUnits: -1,
+            });
+            group.add(new THREE.Mesh(geo, mat));
+            loaded++;
+        } catch (e) { /* skip */ }
+    }
+
+    console.log('Terrain ortho: ' + loaded + '/' + orthoData.tiles.length + ' tiles');
+    scene.add(group);
+    return group;
+}
+
+// ============================================================
+// ACCESS ROAD (KMZ → H-09 Yaremche)
+// ============================================================
+async function buildAccessRoad() {
+    const group = new THREE.Group();
+    group.name = 'Access_Road';
+
+    let roadData;
+    try {
+        const resp = await fetch('js/data/road.json');
+        roadData = await resp.json();
+    } catch (e) {
+        console.warn('road.json not found');
+        return group;
+    }
+
+    const pts = roadData.points;
+    const roadW = roadData.width || 6;
+
+    // ---- SMOOTH ROAD with CatmullRom ----
+    const rawCenter = pts.map(p => new THREE.Vector3(p.x, p.y + 0.5, p.z));
+    const curve = new THREE.CatmullRomCurve3(rawCenter, false, 'centripetal', 0.5);
+    const smoothCount = pts.length * 5; // 5x more points for smooth road
+    const smoothPts = curve.getPoints(smoothCount);
+
+    // ---- Procedural asphalt texture ----
+    const texSize = 256;
+    const canvas2d = document.createElement('canvas');
+    canvas2d.width = texSize; canvas2d.height = texSize;
+    const ctx2d = canvas2d.getContext('2d');
+    // Purple asphalt — high contrast
+    ctx2d.fillStyle = '#2a1040';
+    ctx2d.fillRect(0, 0, texSize, texSize);
+    // Subtle grain
+    for (let i = 0; i < 4000; i++) {
+        const rx = Math.random() * texSize;
+        const ry = Math.random() * texSize;
+        const r = 30 + Math.random() * 20;
+        const g = 10 + Math.random() * 15;
+        const b = 45 + Math.random() * 30;
+        ctx2d.fillStyle = `rgb(${r},${g},${b})`;
+        ctx2d.fillRect(rx, ry, 2, 2);
+    }
+    // Bright white edge lines
+    ctx2d.strokeStyle = '#ffffff';
+    ctx2d.lineWidth = 12;
+    ctx2d.setLineDash([]);
+    ctx2d.beginPath(); ctx2d.moveTo(7, 0); ctx2d.lineTo(7, texSize); ctx2d.stroke();
+    ctx2d.beginPath(); ctx2d.moveTo(texSize - 7, 0); ctx2d.lineTo(texSize - 7, texSize); ctx2d.stroke();
+    // Bright yellow center dashes
+    ctx2d.strokeStyle = '#FFE500';
+    ctx2d.lineWidth = 7;
+    ctx2d.setLineDash([26, 16]);
+    ctx2d.beginPath(); ctx2d.moveTo(texSize / 2, 0); ctx2d.lineTo(texSize / 2, texSize); ctx2d.stroke();
+
+    const asphaltTex = new THREE.CanvasTexture(canvas2d);
+    asphaltTex.wrapS = THREE.RepeatWrapping;
+    asphaltTex.wrapT = THREE.RepeatWrapping;
+    asphaltTex.repeat.set(1, 60);
+    asphaltTex.anisotropy = 8;
+
+    const roadMat = new THREE.MeshStandardMaterial({
+        color: 0x3a1860,
+        map: asphaltTex,
+        roughness: 0.6,
+        side: THREE.DoubleSide,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2,
+        emissive: 0x2a1050,
+        emissiveIntensity: 0.6,
+    });
+
+    // ---- Build mesh with UV ----
+    const leftPts = [];
+    const rightPts = [];
+    const centerPts = [];
+
+    for (let i = 0; i < smoothPts.length; i++) {
+        const p = smoothPts[i];
+        let dx, dz;
+        if (i < smoothPts.length - 1) {
+            dx = smoothPts[i + 1].x - p.x;
+            dz = smoothPts[i + 1].z - p.z;
+        } else {
+            dx = p.x - smoothPts[i - 1].x;
+            dz = p.z - smoothPts[i - 1].z;
+        }
+        const len = Math.sqrt(dx * dx + dz * dz) || 1;
+        const nx = -dz / len * (roadW / 2);
+        const nz = dx / len * (roadW / 2);
+
+        leftPts.push(new THREE.Vector3(p.x + nx, p.y + 1.5, p.z + nz));
+        rightPts.push(new THREE.Vector3(p.x - nx, p.y + 1.5, p.z - nz));
+        centerPts.push(new THREE.Vector3(p.x, p.y + 1.5, p.z));
+    }
+
+    const verts = [];
+    const uvs = [];
+    const indices = [];
+    let cumDist = 0;
+
+    for (let i = 0; i < smoothPts.length; i++) {
+        if (i > 0) {
+            const dx = centerPts[i].x - centerPts[i-1].x;
+            const dz = centerPts[i].z - centerPts[i-1].z;
+            cumDist += Math.sqrt(dx*dx + dz*dz);
+        }
+        const v = cumDist / roadW; // UV.v = distance / road_width for square texels
+
+        verts.push(leftPts[i].x, leftPts[i].y, leftPts[i].z);
+        uvs.push(0, v);
+        verts.push(rightPts[i].x, rightPts[i].y, rightPts[i].z);
+        uvs.push(1, v);
+    }
+
+    for (let i = 0; i < smoothPts.length - 1; i++) {
+        const a = i * 2, b = i * 2 + 1, c = (i + 1) * 2, d = (i + 1) * 2 + 1;
+        indices.push(a, b, c);
+        indices.push(b, d, c);
+    }
+
+    const roadGeo = new THREE.BufferGeometry();
+    roadGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    roadGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    roadGeo.setIndex(indices);
+    roadGeo.computeVertexNormals();
+    group.add(new THREE.Mesh(roadGeo, roadMat));
+
+    // ---- Guardrail posts (every 50m on outside of curves) ----
+    const postMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.6 });
+    let postDist = 0;
+    for (let i = 1; i < centerPts.length; i++) {
+        const dx = centerPts[i].x - centerPts[i-1].x;
+        const dz = centerPts[i].z - centerPts[i-1].z;
+        postDist += Math.sqrt(dx*dx + dz*dz);
+        if (postDist >= 50) {
+            // Post on right side
+            const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.8, 4), postMat);
+            post.position.copy(rightPts[i]);
+            post.position.y += 0.4;
+            group.add(post);
+            postDist -= 50;
+        }
+    }
+
+    // Start label (at site)
+    const startLabel = makeTextSprite('🚗 Під\'їзд до курорту', { fontSize: 13, color: '#cccccc', bgColor: 'rgba(0,0,0,0.6)' });
+    startLabel.position.copy(centerPts[0]);
+    startLabel.position.y += 8;
+    group.add(startLabel);
+
+    // End label (H-09 junction)
+    const endLabel = makeTextSprite('🛣️ Н-09 Яремче\n' + Math.round(pts[pts.length-1].elev) + 'м', {
+        fontSize: 14, color: '#FFcc00', bgColor: 'rgba(0,0,0,0.7)'
+    });
+    endLabel.position.copy(centerPts[centerPts.length - 1]);
+    endLabel.position.y += 12;
+    group.add(endLabel);
+
+    // Distance markers every 1km
+    let dist = 0;
+    for (let i = 1; i < centerPts.length; i++) {
+        const dx = centerPts[i].x - centerPts[i-1].x;
+        const dz = centerPts[i].z - centerPts[i-1].z;
+        dist += Math.sqrt(dx*dx + dz*dz);
+        if (dist >= 1000) {
+            const km = Math.round(dist / 1000);
+            const marker = makeTextSprite(km + ' км', { fontSize: 10, color: '#aaa', bgColor: 'rgba(0,0,0,0.5)' });
+            marker.position.copy(centerPts[i]);
+            marker.position.y += 5;
+            group.add(marker);
+            dist -= 1000;
+        }
+    }
+
+    // Road info for click
+    group.userData = {
+        name: 'Під\'їзна дорога до Н-09',
+        type: 'road',
+        info: `🛣️ Під'їзна дорога
+═══════════════════
+📏 Довжина: 7.4 км
+📐 Перепад: 399м (926м → 527м)
+🚗 Ширина: ${roadW}м (2 смуги)
+🏔️ Від: MAYOT Resort (920м)
+🏙️ До: Яремче, Н-09 (527м)
+⏱️ Час їзди: ~12 хв
+═══════════════════
+Асфальтована дорога з освітленням.
+Під'їзд через с. Вабрянка.`
+    };
+    clickableObjects.push(group);
+
+    // ---- ORTHOPHOTO tiles along road (50m strip) ----
+    try {
+        const orthoResp = await fetch('js/data/ortho_tiles.json');
+        const orthoData = await orthoResp.json();
+        const orthoGroup = new THREE.Group();
+        orthoGroup.name = 'Ortho_Road';
+
+        const loader = new THREE.TextureLoader();
+        let loaded = 0;
+
+        for (const tile of orthoData.tiles) {
+            // Check if tile is near the road (within 100m of any road point)
+            const tileCX = (tile.x0 + tile.x1) / 2;
+            const tileCZ = (tile.z0 + tile.z1) / 2;
+            let nearRoad = false;
+            for (let i = 0; i < centerPts.length; i += 10) {
+                const dx = centerPts[i].x - tileCX;
+                const dz = centerPts[i].z - tileCZ;
+                if (dx*dx + dz*dz < 200*200) { nearRoad = true; break; }
+            }
+            if (!nearRoad) continue;
+
+            try {
+                const tex = await new Promise((resolve, reject) => {
+                    loader.load(tile.file, resolve, undefined, reject);
+                });
+                tex.minFilter = THREE.LinearFilter;
+
+                const tileW = Math.abs(tile.x1 - tile.x0);
+                const tileH = Math.abs(tile.z1 - tile.z0);
+                const segs = 8; // subdivide tile into 8×8 grid to follow terrain
+
+                // Build terrain-draped mesh
+                const verts = [];
+                const uvArr = [];
+                const idxArr = [];
+
+                // Find road elevation at tile center
+                const tileMidX = (tile.x0 + tile.x1) / 2;
+                const tileMidZ = (tile.z0 + tile.z1) / 2;
+                let tileY = 50;
+                let minD2 = Infinity;
+                for (let ri = 0; ri < centerPts.length; ri += 3) {
+                    const rdx = tileMidX - centerPts[ri].x;
+                    const rdz = tileMidZ - centerPts[ri].z;
+                    const d2 = rdx*rdx + rdz*rdz;
+                    if (d2 < minD2) { minD2 = d2; tileY = centerPts[ri].y; }
+                }
+
+                // Flat tile at road elevation
+                for (let iy = 0; iy <= segs; iy++) {
+                    for (let ix = 0; ix <= segs; ix++) {
+                        const fx = ix / segs;
+                        const fz = iy / segs;
+                        const px = tile.x0 + fx * (tile.x1 - tile.x0);
+                        const pz = tile.z0 + fz * (tile.z1 - tile.z0);
+                        verts.push(px, tileY - 0.5, pz);
+                        uvArr.push(fx, 1 - fz);
+                    }
+                }
+
+                for (let iy = 0; iy < segs; iy++) {
+                    for (let ix = 0; ix < segs; ix++) {
+                        const a = iy * (segs+1) + ix;
+                        const b = a + 1;
+                        const c = a + (segs+1);
+                        const d = c + 1;
+                        idxArr.push(a, c, b);
+                        idxArr.push(b, c, d);
+                    }
+                }
+
+                const geo = new THREE.BufferGeometry();
+                geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+                geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvArr, 2));
+                geo.setIndex(idxArr);
+                geo.computeVertexNormals();
+
+                const mat = new THREE.MeshBasicMaterial({
+                    map: tex, transparent: true, opacity: 0.9, side: THREE.DoubleSide,
+                    depthWrite: false,
+                });
+                orthoGroup.add(new THREE.Mesh(geo, mat));
+                loaded++;
+            } catch (e) { /* skip failed tiles */ }
+        }
+
+        group.add(orthoGroup);
+        console.log('Ortho tiles loaded: ' + loaded + '/' + orthoData.tiles.length);
+    } catch (e) {
+        console.warn('Ortho tiles not loaded:', e.message);
+    }
+
+    console.log('Access road: ' + pts.length + ' pts, 7.4km, 6m wide');
+    scene.add(group);
+    return group;
+}
+
+// ============================================================
 // TREES
 // ============================================================
 function buildTrees() {
@@ -3743,6 +4117,46 @@ function setupEvents() {
     addObjToggle('toggleAKI', 'AKI_Resort');
     addObjToggle('toggleRun', 'Ski_Run');
     addObjToggle('toggleGuns', 'SnowGuns');
+
+    // Terrain Ortho: lazy-load on first enable
+    let orthoLoaded = false;
+    const toggleOrthoEl = document.getElementById('toggleOrtho');
+    if (toggleOrthoEl) {
+        toggleOrthoEl.addEventListener('change', async (e) => {
+            if (e.target.checked && !orthoLoaded) {
+                toggleOrthoEl.parentElement.style.opacity = '0.5';
+                toggleOrthoEl.disabled = true;
+                await buildTerrainOrtho();
+                orthoLoaded = true;
+                toggleOrthoEl.disabled = false;
+                toggleOrthoEl.parentElement.style.opacity = '1';
+            } else {
+                scene.traverse(obj => {
+                    if (obj.name === 'Terrain_Ortho') obj.visible = e.target.checked;
+                });
+            }
+        });
+    }
+
+    // Road: lazy-load on first enable
+    let roadLoaded = false;
+    const toggleRoadEl = document.getElementById('toggleRoad');
+    if (toggleRoadEl) {
+        toggleRoadEl.addEventListener('change', async (e) => {
+            if (e.target.checked && !roadLoaded) {
+                toggleRoadEl.parentElement.style.opacity = '0.5';
+                toggleRoadEl.disabled = true;
+                await buildAccessRoad();
+                roadLoaded = true;
+                toggleRoadEl.disabled = false;
+                toggleRoadEl.parentElement.style.opacity = '1';
+            } else {
+                scene.traverse(obj => {
+                    if (obj.name === 'Access_Road') obj.visible = e.target.checked;
+                });
+            }
+        });
+    }
     addObjToggle('togglePardorama', 'Pardorama');
 
     // Lift toggle — includes Ski_Lift and Telemix
