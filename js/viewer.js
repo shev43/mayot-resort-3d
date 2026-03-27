@@ -1616,11 +1616,11 @@ function buildPardorama() {
     const group = new THREE.Group();
     group.name = 'Pardorama_Restaurant';
 
-    // Position: next to upper station, offset slightly east
+    // Position: LEFT of upper station (west = more negative X)
     const ux = -219.6, uz = -1294;
     const uy = sampleTerrainY(ux, uz);
-    // Offset 30m east from upper station
-    const px = ux + 30, pz = uz - 15;
+    // Offset 40m west (left) and 10m south
+    const px = ux - 40, pz = uz + 10;
     const py = sampleTerrainY(px, pz);
 
     // Building dimensions (inspired by Pardorama)
@@ -1767,10 +1767,124 @@ function buildPardorama() {
     rail.position.set(0, pillarH + floorH + 0.7, bD / 2 + 5.9);
     bGroup.add(rail);
 
+    // === FOLIE DOUCE APRÈS-SKI TERRACE ===
+    // Multi-level amphitheatre terrace, DJ stage, sun-facing
+    // Inspired by La Folie Douce Val Thorens (JMV Resort)
+    const tGroup = new THREE.Group();
+    tGroup.position.set(px, py, pz);
+    tGroup.rotation.y = rotY;
+
+    const mWoodDeck = new THREE.MeshStandardMaterial({ color: 0x9B7B3A, roughness: 0.65 });
+    const mRed = new THREE.MeshStandardMaterial({ color: 0xCC3333, roughness: 0.4 });
+    const mBlack = new THREE.MeshStandardMaterial({ color: 0x2A2A2A, roughness: 0.3 });
+
+    // 4 cascading terrace levels (amphitheatre style) — valley-facing (front)
+    const terrLevels = 4;
+    const terrW = bW + 10; // wider than building
+    const stepD = 4;       // depth per step
+    const stepH = 0.6;     // height per step
+
+    for (let t = 0; t < terrLevels; t++) {
+        const tY = pillarH - (t + 1) * stepH;
+        const tZ = bD / 2 + 2 + t * stepD;
+        const tDepth = stepD - 0.3;
+
+        // Deck slab
+        const deckGeo = new THREE.BoxGeometry(terrW, 0.2, tDepth);
+        const deck = new THREE.Mesh(deckGeo, mWoodDeck);
+        deck.position.set(0, tY, tZ + tDepth / 2);
+        tGroup.add(deck);
+
+        // Step riser
+        const riserGeo = new THREE.BoxGeometry(terrW, stepH, 0.15);
+        const riser = new THREE.Mesh(riserGeo, mWood);
+        riser.position.set(0, tY + stepH / 2, tZ);
+        tGroup.add(riser);
+
+        // Bench rows (seating)
+        if (t < terrLevels - 1) {
+            const benchGeo = new THREE.BoxGeometry(terrW - 2, 0.4, 0.5);
+            const bench = new THREE.Mesh(benchGeo, mWood);
+            bench.position.set(0, tY + 0.3, tZ + tDepth / 2);
+            tGroup.add(bench);
+        }
+    }
+
+    // Railing at front edge
+    const frontZ = bD / 2 + 2 + terrLevels * stepD;
+    const railFGeo = new THREE.BoxGeometry(terrW + 2, 1.1, 0.05);
+    const railF = new THREE.Mesh(railFGeo, mSteel);
+    railF.position.set(0, pillarH - terrLevels * stepH + 0.7, frontZ);
+    tGroup.add(railF);
+
+    // Side railings
+    for (const side of [-1, 1]) {
+        const sRailGeo = new THREE.BoxGeometry(0.05, 1.1, terrLevels * stepD + 4);
+        const sRail = new THREE.Mesh(sRailGeo, mSteel);
+        sRail.position.set(side * (terrW / 2 + 1), pillarH - 1, bD / 2 + 2 + terrLevels * stepD / 2);
+        tGroup.add(sRail);
+    }
+
+    // DJ STAGE — elevated platform center of lowest terrace
+    const stageY = pillarH - terrLevels * stepH + 0.2;
+    const stageGeo = new THREE.BoxGeometry(8, 0.8, 5);
+    const stage = new THREE.Mesh(stageGeo, mBlack);
+    stage.position.set(0, stageY + 0.4, frontZ - 6);
+    tGroup.add(stage);
+
+    // DJ booth (small box on stage)
+    const boothGeo = new THREE.BoxGeometry(3, 1.2, 1.5);
+    const booth = new THREE.Mesh(boothGeo, mBlack);
+    booth.position.set(0, stageY + 1.4, frontZ - 6);
+    tGroup.add(booth);
+
+    // Speaker stacks (2 sides)
+    for (const side of [-1, 1]) {
+        const spkGeo = new THREE.BoxGeometry(1.2, 2, 1);
+        const spk = new THREE.Mesh(spkGeo, mBlack);
+        spk.position.set(side * 5, stageY + 1.5, frontZ - 6);
+        tGroup.add(spk);
+    }
+
+    // Stage canopy — fabric shade sail
+    const canopyGeo = new THREE.PlaneGeometry(12, 8);
+    const canopyMat = new THREE.MeshStandardMaterial({
+        color: 0xCC2222, transparent: true, opacity: 0.7, side: THREE.DoubleSide
+    });
+    const canopy = new THREE.Mesh(canopyGeo, canopyMat);
+    canopy.position.set(0, stageY + 4, frontZ - 6);
+    canopy.rotation.x = -Math.PI / 2 + 0.15; // slight tilt
+    tGroup.add(canopy);
+
+    // Canopy support poles (4 corners)
+    for (const sx of [-5.5, 5.5]) {
+        for (const sz of [-3, 3]) {
+            const poleGeo = new THREE.CylinderGeometry(0.08, 0.08, 4.5, 6);
+            const pole = new THREE.Mesh(poleGeo, mSteel);
+            pole.position.set(sx, stageY + 2.25, frontZ - 6 + sz);
+            tGroup.add(pole);
+        }
+    }
+
+    // String lights (festoon) across terrace
+    const lightMat = new THREE.MeshStandardMaterial({ color: 0xFFDD66, emissive: 0xFFAA22, emissiveIntensity: 0.5 });
+    for (let row = 0; row < 3; row++) {
+        const lz = bD / 2 + 4 + row * 5;
+        for (let i = 0; i < 12; i++) {
+            const lx = -terrW / 2 + 3 + i * (terrW - 6) / 11;
+            const bulbGeo = new THREE.SphereGeometry(0.12, 6, 6);
+            const bulb = new THREE.Mesh(bulbGeo, lightMat);
+            bulb.position.set(lx, pillarH + 1.5 - row * 0.3, lz);
+            tGroup.add(bulb);
+        }
+    }
+
+    group.add(tGroup);
+
     // === LABELS ===
     group.add(bGroup);
 
-    const labelSprite = makeTextSprite('Pardorama\n1200м · Панорамний ресторан\n3 поверхи · 600+ місць', {
+    const labelSprite = makeTextSprite('Pardorama + Folie Douce\n1200м · Панорамний ресторан\n3 поверхи · 600+ місць · Après-ski тераса', {
         fontSize: 14, color: '#ffffff', bgColor: 'rgba(30,30,30,0.8)'
     });
     labelSprite.position.set(px, py + pillarH + totalH + roofH + 4, pz);
@@ -1778,25 +1892,31 @@ function buildPardorama() {
 
     // Info panel data
     bGroup.userData = {
-        name: 'Pardorama · Панорамний ресторан',
+        name: 'Pardorama + Folie Douce · 1200м',
         type: 'restaurant',
         info: [
             'Висота: 1200м',
-            'Поверхи: 3',
-            'Місткість: 600+ осіб',
+            '── PARDORAMA ──',
+            'Поверхи: 3 | Місткість: 600+ осіб',
             'Скляний фасад: 1000 м²',
             'Barrel-vault дах зі сталевими ребрами',
-            'Консольна оглядова тераса',
             '1F: Self-service (400 місць)',
             '2F: À la carte (120 місць)',
             '3F: Sky bar + конференц-зал (80 місць)',
-            'Архітектура: скло + сталь + бетон',
-            'Натхнення: Pardorama, Ischgl (2620m)',
+            '',
+            '── FOLIE DOUCE TERRACE ──',
+            '4-рівнева каскадна тераса-амфітеатр',
+            'DJ сцена з навісом та колонками',
+            'Лавки на кожному рівні',
+            'Гірляндне освітлення',
+            'Панорама на Карпати',
+            'Après-ski: 14:00–01:00',
+            'Натхнення: La Folie Douce, Val Thorens',
         ].join('\n'),
     };
 
     scene.add(group);
-    console.log('Pardorama restaurant placed at upper station (1200m)');
+    console.log('Pardorama + Folie Douce terrace placed at upper station (1200m)');
     return group;
 }
 
