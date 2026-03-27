@@ -1043,99 +1043,269 @@ function buildSkiLift() {
     } catch(e) { console.error('LOGISTICS ERROR:', e.message, e.stack); }
 
     // ============================================================
-    // UPPER STATION (1200m) — Mountain top station
+    // UPPER STATION + PARDORAMA + FOLIE DOUCE (integrated complex)
+    // Single building: lift station on right + restaurant center + terrace left
     // ============================================================
     const usGroup = new THREE.Group();
+    usGroup.name = 'Pardorama_Restaurant';
     usGroup.position.set(upperX, upperY, upperZ);
 
-    // Stone base embedded in slope
-    const usBase = new THREE.Mesh(
-        new THREE.BoxGeometry(20, 4, 12),
-        new THREE.MeshStandardMaterial({ color: 0x7B6B5F, roughness: 0.9 })
-    );
-    usBase.position.y = 2;
-    usBase.castShadow = true;
-    usGroup.add(usBase);
+    // Rotate building to align with cable direction
+    const cableAngle = Math.atan2(upperZ - lowerZ, upperX - lowerX);
+    usGroup.rotation.y = cableAngle + Math.PI;
 
-    // Glass observation hall
-    const usHall = new THREE.Mesh(
-        new THREE.BoxGeometry(18, 4, 10),
-        new THREE.MeshStandardMaterial({ color: 0x8FBCBB, metalness: 0.4, roughness: 0.2, transparent: true, opacity: 0.5 })
-    );
-    usHall.position.y = 6;
-    usHall.castShadow = true;
-    usGroup.add(usHall);
+    // Materials
+    const mStone = new THREE.MeshStandardMaterial({ color: 0x7B6B5F, roughness: 0.9 });
+    const mGlassUS = new THREE.MeshStandardMaterial({ color: 0x7BC0E0, metalness: 0.6, roughness: 0.05, transparent: true, opacity: 0.3 });
+    const mSteelUS = new THREE.MeshStandardMaterial({ color: 0x8A8A8A, metalness: 0.8, roughness: 0.2 });
+    const mWhiteUS = new THREE.MeshStandardMaterial({ color: 0xE8E4E0, roughness: 0.5 });
+    const mWoodUS = new THREE.MeshStandardMaterial({ color: 0x8B6914, roughness: 0.7 });
+    const mRoofUS = new THREE.MeshStandardMaterial({ color: 0x4A4A4A, metalness: 0.6, roughness: 0.3 });
+    const mRedUS = new THREE.MeshStandardMaterial({ color: 0xCC3333, roughness: 0.4 });
+    const mBlackUS = new THREE.MeshStandardMaterial({ color: 0x2A2A2A, roughness: 0.3 });
 
-    // Angled roof (ski slope style)
-    const usRoof = new THREE.Mesh(
-        new THREE.BoxGeometry(22, 0.5, 14),
-        new THREE.MeshStandardMaterial({ color: 0x4A4A4A, metalness: 0.5 })
-    );
-    usRoof.position.set(0, 8.5, 0);
-    usRoof.rotation.z = 0.1;
-    usRoof.castShadow = true;
-    usGroup.add(usRoof);
+    // === STONE PLINTH (full width, embeds complex into slope) ===
+    const plinthW = 65, plinthD = 20, plinthH = 4;
+    const plinth = new THREE.Mesh(new THREE.BoxGeometry(plinthW, plinthH, plinthD), mStone);
+    plinth.position.y = plinthH / 2;
+    plinth.castShadow = true;
+    usGroup.add(plinth);
 
-    // Cable tower
-    const usTower = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.7, 0.9, 12, 8),
-        new THREE.MeshStandardMaterial({ color: 0x777777, metalness: 0.6 })
-    );
-    usTower.position.set(6, 6, 0);
-    usGroup.add(usTower);
+    // === SECTION A: LIFT STATION (right side, +X local) ===
+    // D-Line style: white concrete box, glass end-wall
+    const stW = 16, stD = 10, stH = 6;
+    const stX = plinthW / 2 - stW / 2 - 2; // right side
 
-    // Bull wheel
-    const usWheel = new THREE.Mesh(
-        new THREE.TorusGeometry(2, 0.3, 8, 24),
-        new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8 })
-    );
-    usWheel.position.set(6, 12, 0);
-    usWheel.rotation.y = Math.PI / 2;
-    usGroup.add(usWheel);
+    // Station box
+    const stBox = new THREE.Mesh(new THREE.BoxGeometry(stW, stH, stD), mWhiteUS);
+    stBox.position.set(stX, plinthH + stH / 2, 0);
+    usGroup.add(stBox);
 
-    // Observation deck
-    const usDeck = new THREE.Mesh(
-        new THREE.CylinderGeometry(6, 6, 0.3, 16),
-        new THREE.MeshStandardMaterial({ color: 0x9B8B7B, roughness: 0.8 })
+    // Glass end-wall (facing valley)
+    const stGlass = new THREE.Mesh(
+        new THREE.PlaneGeometry(stW - 0.5, stH - 0.5),
+        mGlassUS
     );
-    usDeck.position.set(-6, 8.5, 4);
-    usGroup.add(usDeck);
+    stGlass.position.set(stX, plinthH + stH / 2, stD / 2 + 0.01);
+    usGroup.add(stGlass);
 
-    // Railing around deck
-    for (let a = 0; a < Math.PI * 2; a += Math.PI / 8) {
-        const rPost = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.06, 0.06, 1.1, 4),
-            new THREE.MeshStandardMaterial({ color: 0x666666, metalness: 0.6 })
-        );
-        rPost.position.set(-6 + Math.cos(a) * 5.8, 9.2, 4 + Math.sin(a) * 5.8);
-        usGroup.add(rPost);
+    // Barrel-vault mini-roof on station
+    for (let i = 0; i <= 8; i++) {
+        const a = (i / 8) * Math.PI;
+        const ry = Math.sin(a) * 2;
+        const rz = Math.cos(a) * (stD / 2 + 0.5);
+        const rib = new THREE.Mesh(new THREE.BoxGeometry(stW + 1, 0.06, 0.06), mSteelUS);
+        rib.position.set(stX, plinthH + stH + ry, rz);
+        usGroup.add(rib);
     }
 
-    usGroup.userData = { name: 'Верхня станція (1200м)', type: 'ski-lift', info:
-`🏔️ Верхня станція — 1200м
-═══════════════════════════════
-📍 Координати: 48.4651°N, 24.4955°E
-📏 Висота: 1200м над р.м.
-⛰️ Перепад від нижньої: 280м
-═══════════════════════════════
-БУДІВЛЯ:
-• Кам'яний цоколь 20×12м (вмурований в схил)
-• Скляний зал очікування 18×10м
-• Оглядовий майданчик (Ø12м)
-• Кабельна вежа 12м + bull wheel
-═══════════════════════════════
-СТАРТ ТРАСИ:
-• 🔵 Легка синя №1 (ширина ~120м)
-• Довжина: ~1,340м
-• Перепад: 280м
-• Фініш: дах паркінгу нижньої станції`
+    // Cable tower + bull wheel
+    const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.8, 14, 8), mSteelUS);
+    tower.position.set(stX + stW / 2 - 1, plinthH + 7, 0);
+    usGroup.add(tower);
+
+    const wheel = new THREE.Mesh(new THREE.TorusGeometry(2, 0.3, 8, 24), mBlackUS);
+    wheel.position.set(stX + stW / 2 - 1, plinthH + 14, 0);
+    wheel.rotation.y = Math.PI / 2;
+    usGroup.add(wheel);
+
+    // === SECTION B: PARDORAMA RESTAURANT (center) ===
+    const rW = 30, rD = 16, rFloors = 3, rFloorH = 3.5;
+    const rX = 0; // center
+
+    for (let f = 0; f < rFloors; f++) {
+        const fY = plinthH + f * rFloorH;
+
+        // Floor slab
+        const slab = new THREE.Mesh(new THREE.BoxGeometry(rW, 0.3, rD), mWhiteUS);
+        slab.position.set(rX, fY, 0);
+        usGroup.add(slab);
+
+        // Glass walls — front + back
+        const nPanels = 12;
+        const panW = rW / nPanels;
+        for (let p = 0; p < nPanels; p++) {
+            const gx = rX - rW / 2 + panW / 2 + p * panW;
+
+            // Front glass
+            const gFront = new THREE.Mesh(new THREE.PlaneGeometry(panW - 0.06, rFloorH - 0.4), mGlassUS);
+            gFront.position.set(gx, fY + rFloorH / 2, rD / 2 + 0.01);
+            usGroup.add(gFront);
+
+            // Back glass
+            const gBack = new THREE.Mesh(new THREE.PlaneGeometry(panW - 0.06, rFloorH - 0.4), mGlassUS);
+            gBack.position.set(gx, fY + rFloorH / 2, -rD / 2 - 0.01);
+            gBack.rotation.y = Math.PI;
+            usGroup.add(gBack);
+
+            // Steel mullion front
+            const mul = new THREE.Mesh(new THREE.BoxGeometry(0.05, rFloorH, 0.05), mSteelUS);
+            mul.position.set(rX - rW / 2 + p * panW, fY + rFloorH / 2, rD / 2);
+            usGroup.add(mul);
+        }
+
+        // Side glass
+        const nSide = 6;
+        const sPanW = rD / nSide;
+        for (let p = 0; p < nSide; p++) {
+            for (const side of [-1, 1]) {
+                const gSide = new THREE.Mesh(new THREE.PlaneGeometry(sPanW - 0.06, rFloorH - 0.4), mGlassUS);
+                gSide.position.set(rX + side * (rW / 2 + 0.01), fY + rFloorH / 2, -rD / 2 + sPanW / 2 + p * sPanW);
+                gSide.rotation.y = side * Math.PI / 2;
+                usGroup.add(gSide);
+            }
+        }
+    }
+
+    // Restaurant roof slab
+    const rRoofY = plinthH + rFloors * rFloorH;
+    const rRoof = new THREE.Mesh(new THREE.BoxGeometry(rW + 2, 0.3, rD + 2), mRoofUS);
+    rRoof.position.set(rX, rRoofY, 0);
+    usGroup.add(rRoof);
+
+    // Barrel-vault roof over restaurant
+    for (let i = 0; i <= 12; i++) {
+        const a = (i / 12) * Math.PI;
+        const ry = Math.sin(a) * 3;
+        const rz = Math.cos(a) * (rD / 2 + 1);
+        const rib = new THREE.Mesh(new THREE.BoxGeometry(rW + 1, 0.07, 0.07), mSteelUS);
+        rib.position.set(rX, rRoofY + ry, rz);
+        usGroup.add(rib);
+    }
+
+    // === CONNECTING GALLERY (between station and restaurant) ===
+    const galW = stX - rW / 2 - rX;
+    if (galW > 1) {
+        const gal = new THREE.Mesh(new THREE.BoxGeometry(galW, 3.5, 6), mGlassUS);
+        gal.position.set(rX + rW / 2 + galW / 2, plinthH + 1.75, 0);
+        usGroup.add(gal);
+    }
+
+    // === SECTION C: FOLIE DOUCE TERRACE (left side, -X local, valley-facing) ===
+    const tBaseX = -plinthW / 2 + 12; // left side
+    const terrLevels = 4;
+    const terrW = 25;
+    const stepD = 4, stepH = 0.6;
+
+    for (let t = 0; t < terrLevels; t++) {
+        const tY = plinthH - (t + 1) * stepH;
+        const tZ = rD / 2 + 2 + t * stepD;
+
+        // Deck
+        const deck = new THREE.Mesh(new THREE.BoxGeometry(terrW, 0.2, stepD - 0.3), mWoodUS);
+        deck.position.set(tBaseX, tY, tZ + (stepD - 0.3) / 2);
+        usGroup.add(deck);
+
+        // Riser
+        const riser = new THREE.Mesh(new THREE.BoxGeometry(terrW, stepH, 0.15), mWoodUS);
+        riser.position.set(tBaseX, tY + stepH / 2, tZ);
+        usGroup.add(riser);
+
+        // Bench
+        if (t < terrLevels - 1) {
+            const bench = new THREE.Mesh(new THREE.BoxGeometry(terrW - 2, 0.4, 0.5), mWoodUS);
+            bench.position.set(tBaseX, tY + 0.3, tZ + (stepD - 0.3) / 2);
+            usGroup.add(bench);
+        }
+    }
+
+    // Front railing
+    const frontZ = rD / 2 + 2 + terrLevels * stepD;
+    const railFr = new THREE.Mesh(new THREE.BoxGeometry(terrW + 2, 1.1, 0.05), mSteelUS);
+    railFr.position.set(tBaseX, plinthH - terrLevels * stepH + 0.7, frontZ);
+    usGroup.add(railFr);
+
+    // DJ Stage
+    const stageY = plinthH - terrLevels * stepH + 0.2;
+    const stage = new THREE.Mesh(new THREE.BoxGeometry(8, 0.8, 5), mBlackUS);
+    stage.position.set(tBaseX, stageY + 0.4, frontZ - 6);
+    usGroup.add(stage);
+
+    // DJ booth
+    const djBooth = new THREE.Mesh(new THREE.BoxGeometry(3, 1.2, 1.5), mBlackUS);
+    djBooth.position.set(tBaseX, stageY + 1.4, frontZ - 6);
+    usGroup.add(djBooth);
+
+    // Speakers
+    for (const s of [-1, 1]) {
+        const spk = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2, 1), mBlackUS);
+        spk.position.set(tBaseX + s * 5, stageY + 1.5, frontZ - 6);
+        usGroup.add(spk);
+    }
+
+    // Red canopy over stage
+    const canopy = new THREE.Mesh(
+        new THREE.PlaneGeometry(12, 8),
+        new THREE.MeshStandardMaterial({ color: 0xCC2222, transparent: true, opacity: 0.7, side: THREE.DoubleSide })
+    );
+    canopy.position.set(tBaseX, stageY + 4, frontZ - 6);
+    canopy.rotation.x = -Math.PI / 2 + 0.15;
+    usGroup.add(canopy);
+
+    // Canopy poles
+    for (const sx of [-5.5, 5.5]) {
+        for (const sz of [-3, 3]) {
+            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 4.5, 6), mSteelUS);
+            pole.position.set(tBaseX + sx, stageY + 2.25, frontZ - 6 + sz);
+            usGroup.add(pole);
+        }
+    }
+
+    // Festoon lights
+    const lightMat2 = new THREE.MeshStandardMaterial({ color: 0xFFDD66, emissive: 0xFFAA22, emissiveIntensity: 0.5 });
+    for (let row = 0; row < 3; row++) {
+        const lz = rD / 2 + 4 + row * 5;
+        for (let i = 0; i < 8; i++) {
+            const lx = tBaseX - terrW / 2 + 2 + i * (terrW - 4) / 7;
+            const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 6), lightMat2);
+            bulb.position.set(lx, plinthH + 1.5 - row * 0.3, lz);
+            usGroup.add(bulb);
+        }
+    }
+
+    // === WALKWAY from restaurant to terrace (covered passage) ===
+    const walkGeo = new THREE.BoxGeometry(rW / 2 + Math.abs(tBaseX), 0.2, 3);
+    const walkway = new THREE.Mesh(walkGeo, mWoodUS);
+    walkway.position.set((rX + tBaseX) / 2, plinthH + 0.1, rD / 2 + 1);
+    usGroup.add(walkway);
+
+    // === INFO ===
+    usGroup.userData = { name: 'Верхня станція + Pardorama + Folie Douce', type: 'complex', info:
+`🏔️ Верхня станція · Pardorama · Folie Douce
+═══════════════════════════════════════
+📍 1200м · Інтегрований комплекс
+═══════════════════════════════════════
+ЛІФТОВА СТАНЦІЯ (праве крило):
+• Doppelmayr D-Line посадка/висадка
+• Скляна торцева стіна
+• Кабельна вежа 14м + bull wheel
+═══════════════════════════════════════
+PARDORAMA РЕСТОРАН (центр):
+• 3 поверхи · 30×16м · 600+ місць
+• 1F: Self-service (400)
+• 2F: À la carte (120)
+• 3F: Sky bar + конференц (80)
+• Скляний фасад 1000 м²
+• Barrel-vault дах
+═══════════════════════════════════════
+FOLIE DOUCE ТЕРАСА (ліве крило):
+• 4-рівневий амфітеатр
+• DJ сцена + червоний навіс
+• Après-ski 14:00–01:00
+• Festoon-освітлення
+═══════════════════════════════════════
+ЛОГІСТИКА:
+• Лижники: витяг → станція → траса
+• Пішоходи: станція → галерея → ресторан
+• Après-ski: ресторан → walkway → тераса
+• Кам'яний цоколь 65×20м (єдина платформа)`
     };
-    clickableObjects.push(usBase);
+    clickableObjects.push(plinth);
     group.add(usGroup);
 
-    const uLabel = makeTextSprite('Верхня станція 1200м', { fontSize: 18, color: '#FF6600', bgColor: 'rgba(0,0,0,0.7)' });
-    uLabel.position.set(upperX, upperY + 18, upperZ);
-    uLabel.userData = { name: 'Верхня станція 1200м', type: 'ski-lift' };
+    const uLabel = makeTextSprite('Верхня станція 1200м\nPardorama + Folie Douce', { fontSize: 18, color: '#FF6600', bgColor: 'rgba(0,0,0,0.7)' });
+    uLabel.position.set(upperX, upperY + 22, upperZ);
+    uLabel.userData = { name: 'Верхня станція 1200м', type: 'complex' };
     clickableObjects.push(uLabel);
     group.add(uLabel);
 
@@ -1607,320 +1777,10 @@ function buildSnowGuns() {
     return group;
 }
 
-// ============================================================
-// PARDORAMA — Panoramic Restaurant at Upper Station (1200m)
-// Inspired by Pardorama Ischgl: 3-storey glass+steel, 1000m² facade
-// 600+ seats, barrel-vault roof, on 3-point foundation
-// ============================================================
-function buildPardorama() {
-    const group = new THREE.Group();
-    group.name = 'Pardorama_Restaurant';
 
-    // Position: LEFT of upper station (west = more negative X)
-    const ux = -219.6, uz = -1294;
-    const uy = sampleTerrainY(ux, uz);
-    // Offset 40m west (left) and 10m south
-    const px = ux - 40, pz = uz + 10;
-    const py = sampleTerrainY(px, pz);
+// Pardorama is now integrated into upper station in buildSkiLift()
+function buildPardorama() { return null; }
 
-    // Building dimensions (inspired by Pardorama)
-    const bW = 40;   // width (along slope)
-    const bD = 18;   // depth (perpendicular)
-    const floorH = 3.5;  // per floor
-    const floors = 3;
-    const totalH = floors * floorH;
-    const pillarH = 4;   // raised on pillars
-
-    // Rotation to face the valley (SE direction)
-    const rotY = Math.atan2(-(-1294 - (-38)), -(-219.6 - 124)); // face down the slope
-
-    // Materials
-    const mConcrete = new THREE.MeshStandardMaterial({ color: 0xD8D4D0, roughness: 0.6 });
-    const mGlass = new THREE.MeshStandardMaterial({ color: 0x7BC0E0, metalness: 0.6, roughness: 0.05, transparent: true, opacity: 0.3 });
-    const mSteel = new THREE.MeshStandardMaterial({ color: 0x8A8A8A, metalness: 0.8, roughness: 0.2 });
-    const mWood = new THREE.MeshStandardMaterial({ color: 0x8B6914, roughness: 0.7 });
-    const mRoof = new THREE.MeshStandardMaterial({ color: 0x4A4A4A, metalness: 0.6, roughness: 0.3 });
-
-    const bGroup = new THREE.Group();
-    bGroup.position.set(px, py, pz);
-    bGroup.rotation.y = rotY;
-
-    // === 3 PILLARS (V-shaped supports) ===
-    for (let i = -1; i <= 1; i++) {
-        const pillarX = i * (bW / 3);
-        // Front pillar
-        const pGeo = new THREE.CylinderGeometry(0.4, 0.5, pillarH + totalH, 8);
-        const pillar = new THREE.Mesh(pGeo, mConcrete);
-        pillar.position.set(pillarX, (pillarH + totalH) / 2, bD / 3);
-        bGroup.add(pillar);
-        // Back pillar
-        const p2 = new THREE.Mesh(pGeo, mConcrete);
-        p2.position.set(pillarX, (pillarH + totalH) / 2, -bD / 3);
-        bGroup.add(p2);
-    }
-
-    // === FLOOR SLABS (3 floors) ===
-    for (let f = 0; f < floors; f++) {
-        const slabY = pillarH + f * floorH;
-        const slabGeo = new THREE.BoxGeometry(bW + 2, 0.35, bD + 2);
-        const slab = new THREE.Mesh(slabGeo, mConcrete);
-        slab.position.set(0, slabY, 0);
-        bGroup.add(slab);
-
-        // Glass walls on all 4 sides
-        const panelW = 2.5;
-        // Front (valley-facing) — full glass
-        const nPanels = Math.floor(bW / panelW);
-        for (let p = 0; p < nPanels; p++) {
-            const gGeo = new THREE.PlaneGeometry(panelW - 0.08, floorH - 0.4);
-            const glass = new THREE.Mesh(gGeo, mGlass);
-            glass.position.set(-bW / 2 + panelW / 2 + p * panelW, slabY + floorH / 2, bD / 2 + 1.01);
-            bGroup.add(glass);
-        }
-        // Back — glass with less opacity
-        for (let p = 0; p < nPanels; p++) {
-            const gGeo = new THREE.PlaneGeometry(panelW - 0.08, floorH - 0.4);
-            const glass = new THREE.Mesh(gGeo, mGlass);
-            glass.position.set(-bW / 2 + panelW / 2 + p * panelW, slabY + floorH / 2, -bD / 2 - 1.01);
-            glass.rotation.y = Math.PI;
-            bGroup.add(glass);
-        }
-        // Sides
-        const nSide = Math.floor(bD / panelW);
-        for (let p = 0; p < nSide; p++) {
-            const gGeo = new THREE.PlaneGeometry(panelW - 0.08, floorH - 0.4);
-            const g1 = new THREE.Mesh(gGeo, mGlass);
-            g1.position.set(bW / 2 + 1.01, slabY + floorH / 2, -bD / 2 + panelW / 2 + p * panelW);
-            g1.rotation.y = Math.PI / 2;
-            bGroup.add(g1);
-            const g2 = new THREE.Mesh(gGeo, mGlass);
-            g2.position.set(-bW / 2 - 1.01, slabY + floorH / 2, -bD / 2 + panelW / 2 + p * panelW);
-            g2.rotation.y = -Math.PI / 2;
-            bGroup.add(g2);
-        }
-
-        // Steel mullions (vertical)
-        for (let p = 0; p <= nPanels; p++) {
-            const mGeo = new THREE.BoxGeometry(0.06, floorH, 0.06);
-            const mul = new THREE.Mesh(mGeo, mSteel);
-            mul.position.set(-bW / 2 + p * panelW, slabY + floorH / 2, bD / 2 + 1);
-            bGroup.add(mul);
-        }
-    }
-
-    // === BARREL-VAULT ROOF ===
-    const roofY = pillarH + floors * floorH;
-    const roofH = 3;
-    const roofSegs = 16;
-    for (let i = 0; i <= roofSegs; i++) {
-        const angle = (i / roofSegs) * Math.PI;
-        const ry = Math.sin(angle) * roofH;
-        const rz = Math.cos(angle) * (bD / 2 + 1.5);
-
-        // Steel rib
-        const ribGeo = new THREE.BoxGeometry(bW + 2, 0.08, 0.08);
-        const rib = new THREE.Mesh(ribGeo, mSteel);
-        rib.position.set(0, roofY + ry, rz);
-        bGroup.add(rib);
-    }
-
-    // Roof glass panels between ribs
-    for (let i = 0; i < roofSegs; i++) {
-        const a1 = (i / roofSegs) * Math.PI;
-        const a2 = ((i + 1) / roofSegs) * Math.PI;
-        const y1 = roofY + Math.sin(a1) * roofH;
-        const z1 = Math.cos(a1) * (bD / 2 + 1.5);
-        const y2 = roofY + Math.sin(a2) * roofH;
-        const z2 = Math.cos(a2) * (bD / 2 + 1.5);
-
-        const midY = (y1 + y2) / 2;
-        const midZ = (z1 + z2) / 2;
-        const segLen = Math.sqrt((y2 - y1) ** 2 + (z2 - z1) ** 2);
-        const segAngle = Math.atan2(y2 - y1, z2 - z1);
-
-        const pGeo = new THREE.PlaneGeometry(bW + 1.5, segLen);
-        const panel = new THREE.Mesh(pGeo, new THREE.MeshStandardMaterial({
-            color: 0x8ECCE8, metalness: 0.4, roughness: 0.05, transparent: true, opacity: 0.2, side: THREE.DoubleSide
-        }));
-        panel.position.set(0, midY, midZ);
-        panel.rotation.x = segAngle - Math.PI / 2;
-        bGroup.add(panel);
-    }
-
-    // === TOP SLAB (roof floor) ===
-    const topSlab = new THREE.Mesh(
-        new THREE.BoxGeometry(bW + 2, 0.3, bD + 2),
-        mConcrete
-    );
-    topSlab.position.set(0, roofY, 0);
-    bGroup.add(topSlab);
-
-    // === VIEWING TERRACE (cantilevered, front) ===
-    const terrGeo = new THREE.BoxGeometry(bW + 6, 0.25, 5);
-    const terrace = new THREE.Mesh(terrGeo, mWood);
-    terrace.position.set(0, pillarH + floorH, bD / 2 + 3.5);
-    bGroup.add(terrace);
-
-    // Terrace railing
-    const railGeo = new THREE.BoxGeometry(bW + 6, 1.1, 0.05);
-    const rail = new THREE.Mesh(railGeo, mSteel);
-    rail.position.set(0, pillarH + floorH + 0.7, bD / 2 + 5.9);
-    bGroup.add(rail);
-
-    // === FOLIE DOUCE APRÈS-SKI TERRACE ===
-    // Multi-level amphitheatre terrace, DJ stage, sun-facing
-    // Inspired by La Folie Douce Val Thorens (JMV Resort)
-    const tGroup = new THREE.Group();
-    tGroup.position.set(px, py, pz);
-    tGroup.rotation.y = rotY;
-
-    const mWoodDeck = new THREE.MeshStandardMaterial({ color: 0x9B7B3A, roughness: 0.65 });
-    const mRed = new THREE.MeshStandardMaterial({ color: 0xCC3333, roughness: 0.4 });
-    const mBlack = new THREE.MeshStandardMaterial({ color: 0x2A2A2A, roughness: 0.3 });
-
-    // 4 cascading terrace levels (amphitheatre style) — valley-facing (front)
-    const terrLevels = 4;
-    const terrW = bW + 10; // wider than building
-    const stepD = 4;       // depth per step
-    const stepH = 0.6;     // height per step
-
-    for (let t = 0; t < terrLevels; t++) {
-        const tY = pillarH - (t + 1) * stepH;
-        const tZ = bD / 2 + 2 + t * stepD;
-        const tDepth = stepD - 0.3;
-
-        // Deck slab
-        const deckGeo = new THREE.BoxGeometry(terrW, 0.2, tDepth);
-        const deck = new THREE.Mesh(deckGeo, mWoodDeck);
-        deck.position.set(0, tY, tZ + tDepth / 2);
-        tGroup.add(deck);
-
-        // Step riser
-        const riserGeo = new THREE.BoxGeometry(terrW, stepH, 0.15);
-        const riser = new THREE.Mesh(riserGeo, mWood);
-        riser.position.set(0, tY + stepH / 2, tZ);
-        tGroup.add(riser);
-
-        // Bench rows (seating)
-        if (t < terrLevels - 1) {
-            const benchGeo = new THREE.BoxGeometry(terrW - 2, 0.4, 0.5);
-            const bench = new THREE.Mesh(benchGeo, mWood);
-            bench.position.set(0, tY + 0.3, tZ + tDepth / 2);
-            tGroup.add(bench);
-        }
-    }
-
-    // Railing at front edge
-    const frontZ = bD / 2 + 2 + terrLevels * stepD;
-    const railFGeo = new THREE.BoxGeometry(terrW + 2, 1.1, 0.05);
-    const railF = new THREE.Mesh(railFGeo, mSteel);
-    railF.position.set(0, pillarH - terrLevels * stepH + 0.7, frontZ);
-    tGroup.add(railF);
-
-    // Side railings
-    for (const side of [-1, 1]) {
-        const sRailGeo = new THREE.BoxGeometry(0.05, 1.1, terrLevels * stepD + 4);
-        const sRail = new THREE.Mesh(sRailGeo, mSteel);
-        sRail.position.set(side * (terrW / 2 + 1), pillarH - 1, bD / 2 + 2 + terrLevels * stepD / 2);
-        tGroup.add(sRail);
-    }
-
-    // DJ STAGE — elevated platform center of lowest terrace
-    const stageY = pillarH - terrLevels * stepH + 0.2;
-    const stageGeo = new THREE.BoxGeometry(8, 0.8, 5);
-    const stage = new THREE.Mesh(stageGeo, mBlack);
-    stage.position.set(0, stageY + 0.4, frontZ - 6);
-    tGroup.add(stage);
-
-    // DJ booth (small box on stage)
-    const boothGeo = new THREE.BoxGeometry(3, 1.2, 1.5);
-    const booth = new THREE.Mesh(boothGeo, mBlack);
-    booth.position.set(0, stageY + 1.4, frontZ - 6);
-    tGroup.add(booth);
-
-    // Speaker stacks (2 sides)
-    for (const side of [-1, 1]) {
-        const spkGeo = new THREE.BoxGeometry(1.2, 2, 1);
-        const spk = new THREE.Mesh(spkGeo, mBlack);
-        spk.position.set(side * 5, stageY + 1.5, frontZ - 6);
-        tGroup.add(spk);
-    }
-
-    // Stage canopy — fabric shade sail
-    const canopyGeo = new THREE.PlaneGeometry(12, 8);
-    const canopyMat = new THREE.MeshStandardMaterial({
-        color: 0xCC2222, transparent: true, opacity: 0.7, side: THREE.DoubleSide
-    });
-    const canopy = new THREE.Mesh(canopyGeo, canopyMat);
-    canopy.position.set(0, stageY + 4, frontZ - 6);
-    canopy.rotation.x = -Math.PI / 2 + 0.15; // slight tilt
-    tGroup.add(canopy);
-
-    // Canopy support poles (4 corners)
-    for (const sx of [-5.5, 5.5]) {
-        for (const sz of [-3, 3]) {
-            const poleGeo = new THREE.CylinderGeometry(0.08, 0.08, 4.5, 6);
-            const pole = new THREE.Mesh(poleGeo, mSteel);
-            pole.position.set(sx, stageY + 2.25, frontZ - 6 + sz);
-            tGroup.add(pole);
-        }
-    }
-
-    // String lights (festoon) across terrace
-    const lightMat = new THREE.MeshStandardMaterial({ color: 0xFFDD66, emissive: 0xFFAA22, emissiveIntensity: 0.5 });
-    for (let row = 0; row < 3; row++) {
-        const lz = bD / 2 + 4 + row * 5;
-        for (let i = 0; i < 12; i++) {
-            const lx = -terrW / 2 + 3 + i * (terrW - 6) / 11;
-            const bulbGeo = new THREE.SphereGeometry(0.12, 6, 6);
-            const bulb = new THREE.Mesh(bulbGeo, lightMat);
-            bulb.position.set(lx, pillarH + 1.5 - row * 0.3, lz);
-            tGroup.add(bulb);
-        }
-    }
-
-    group.add(tGroup);
-
-    // === LABELS ===
-    group.add(bGroup);
-
-    const labelSprite = makeTextSprite('Pardorama + Folie Douce\n1200м · Панорамний ресторан\n3 поверхи · 600+ місць · Après-ski тераса', {
-        fontSize: 14, color: '#ffffff', bgColor: 'rgba(30,30,30,0.8)'
-    });
-    labelSprite.position.set(px, py + pillarH + totalH + roofH + 4, pz);
-    group.add(labelSprite);
-
-    // Info panel data
-    bGroup.userData = {
-        name: 'Pardorama + Folie Douce · 1200м',
-        type: 'restaurant',
-        info: [
-            'Висота: 1200м',
-            '── PARDORAMA ──',
-            'Поверхи: 3 | Місткість: 600+ осіб',
-            'Скляний фасад: 1000 м²',
-            'Barrel-vault дах зі сталевими ребрами',
-            '1F: Self-service (400 місць)',
-            '2F: À la carte (120 місць)',
-            '3F: Sky bar + конференц-зал (80 місць)',
-            '',
-            '── FOLIE DOUCE TERRACE ──',
-            '4-рівнева каскадна тераса-амфітеатр',
-            'DJ сцена з навісом та колонками',
-            'Лавки на кожному рівні',
-            'Гірляндне освітлення',
-            'Панорама на Карпати',
-            'Après-ski: 14:00–01:00',
-            'Натхнення: La Folie Douce, Val Thorens',
-        ].join('\n'),
-    };
-
-    scene.add(group);
-    console.log('Pardorama + Folie Douce terrace placed at upper station (1200m)');
-    return group;
-}
-
-// ============================================================
 // SKI RUN — Легка синя №1 (120м) + corridor
 // ============================================================
 function buildSkiRun() {
