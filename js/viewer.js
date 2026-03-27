@@ -818,6 +818,7 @@ function buildSkiLift() {
     // ============================================================
     // LOWER STATION LOGISTICS — v3 INTEGRATED
     // ============================================================
+    {  // Block scope for logistics variables
     // Concept: Parking = base podium. Roof = finish zone + services plaza.
     // Ski run LANDS on the roof. Services face the slope (NW).
     // No separate station building on roof — the existing lsGroup IS the station.
@@ -1041,11 +1042,13 @@ function buildSkiLift() {
 
     console.log('LOGISTICS v3: done!', cplxGroup.children.length, 'objects');
     } catch(e) { console.error('LOGISTICS ERROR:', e.message, e.stack); }
+    }  // End block scope for logistics
 
     // ============================================================
     // UPPER STATION + PARDORAMA + FOLIE DOUCE (integrated complex)
     // Single building: lift station on right + restaurant center + terrace left
     // ============================================================
+    {  // Block scope for upper station variables
     const usGroup = new THREE.Group();
     usGroup.name = 'Pardorama_Restaurant';
     usGroup.position.set(upperX, upperY, upperZ);
@@ -1073,20 +1076,20 @@ function buildSkiLift() {
 
     // === SECTION A: LIFT STATION (right side, +X local) ===
     // D-Line style: white concrete box, glass end-wall
-    const stW = 16, stD = 10, stH = 6;
-    const stX = plinthW / 2 - stW / 2 - 2; // right side
+    const usStW = 16, stD = 10, usStH = 6;
+    const stX = plinthW / 2 - usStW / 2 - 2; // right side
 
     // Station box
-    const stBox = new THREE.Mesh(new THREE.BoxGeometry(stW, stH, stD), mWhiteUS);
-    stBox.position.set(stX, plinthH + stH / 2, 0);
+    const stBox = new THREE.Mesh(new THREE.BoxGeometry(usStW, usStH, stD), mWhiteUS);
+    stBox.position.set(stX, plinthH + usStH / 2, 0);
     usGroup.add(stBox);
 
     // Glass end-wall (facing valley)
     const stGlass = new THREE.Mesh(
-        new THREE.PlaneGeometry(stW - 0.5, stH - 0.5),
+        new THREE.PlaneGeometry(usStW - 0.5, usStH - 0.5),
         mGlassUS
     );
-    stGlass.position.set(stX, plinthH + stH / 2, stD / 2 + 0.01);
+    stGlass.position.set(stX, plinthH + usStH / 2, stD / 2 + 0.01);
     usGroup.add(stGlass);
 
     // Barrel-vault mini-roof on station
@@ -1094,18 +1097,18 @@ function buildSkiLift() {
         const a = (i / 8) * Math.PI;
         const ry = Math.sin(a) * 2;
         const rz = Math.cos(a) * (stD / 2 + 0.5);
-        const rib = new THREE.Mesh(new THREE.BoxGeometry(stW + 1, 0.06, 0.06), mSteelUS);
-        rib.position.set(stX, plinthH + stH + ry, rz);
+        const rib = new THREE.Mesh(new THREE.BoxGeometry(usStW + 1, 0.06, 0.06), mSteelUS);
+        rib.position.set(stX, plinthH + usStH + ry, rz);
         usGroup.add(rib);
     }
 
     // Cable tower + bull wheel
     const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.8, 14, 8), mSteelUS);
-    tower.position.set(stX + stW / 2 - 1, plinthH + 7, 0);
+    tower.position.set(stX + usStW / 2 - 1, plinthH + 7, 0);
     usGroup.add(tower);
 
     const wheel = new THREE.Mesh(new THREE.TorusGeometry(2, 0.3, 8, 24), mBlackUS);
-    wheel.position.set(stX + stW / 2 - 1, plinthH + 14, 0);
+    wheel.position.set(stX + usStW / 2 - 1, plinthH + 14, 0);
     wheel.rotation.y = Math.PI / 2;
     usGroup.add(wheel);
 
@@ -1308,7 +1311,9 @@ FOLIE DOUCE ТЕРАСА (ліве крило):
     uLabel.userData = { name: 'Верхня станція 1200м', type: 'complex' };
     clickableObjects.push(uLabel);
     group.add(uLabel);
+    }  // End block scope for upper station
 
+    {  // Block scope for cable + carriers
     // ---- CABLE LINE (poles on terrain) ----
     const numPoles = 16;
     const poleHeight = 10;
@@ -1543,6 +1548,8 @@ FOLIE DOUCE ТЕРАСА (ліве крило):
     console.log(`  Per side: ${gondolasPerSide} gondolas (8p) + ${chairsPerSide} chairs (6p) = ${totalPerDir} carriers`);
     console.log(`  Total lift: ${totalGondolas} gondolas + ${totalChairs} chairs = ${totalCarriers} carriers`);
     console.log(`  Seats per side: ${seatsPerSide} | Capacity: ~${capacityPPH} pph (uphill)`);
+
+    }  // End block scope for cable + carriers
 
     scene.add(group);
     return group;
@@ -2235,6 +2242,7 @@ async function init() {
 
     // Debug: expose for console inspection
     window.__scene = scene;
+    window.__renderer = renderer;
     window.__clickable = clickableObjects;
     window.__THREE = THREE;
 
