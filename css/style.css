@@ -117,3 +117,68 @@ canvas { display: block; }
     border-radius: 4px; padding: 6px 10px; font-size: 11px; pointer-events: none;
     z-index: 200; display: none; white-space: nowrap;
 }
+
+/* Info panel close button */
+#info-panel .close-btn { font-size: 22px; line-height: 1; padding: 4px 8px; }
+#info-panel .close-btn:hover { color: #fff; }
+
+/* Legend toggle button (mobile) */
+#legend-toggle {
+    display: none; position: fixed; bottom: 16px; left: 16px; z-index: 91;
+    background: rgba(20,20,20,0.92); border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px; padding: 8px 14px; color: #aaa; font-size: 12px; cursor: pointer;
+}
+#legend-toggle:hover { color: #fff; border-color: #2B5C3F; }
+
+/* ============================================================ */
+/* MOBILE                                                        */
+/* ============================================================ */
+@media (max-width: 768px) {
+    #top-bar {
+        height: 44px; padding: 0 10px;
+        flex-wrap: nowrap; overflow-x: auto;
+    }
+    .logo { font-size: 13px; letter-spacing: 2px; white-space: nowrap; }
+    .subtitle { display: none; }
+    .controls-top { gap: 4px; flex-shrink: 0; }
+    .btn { padding: 4px 8px; font-size: 10px; }
+
+    /* Legend — collapsible on mobile */
+    #legend {
+        bottom: 50px; left: 8px; width: 220px; max-height: 50vh;
+        overflow-y: auto; font-size: 11px; padding: 10px;
+        display: none; /* hidden by default on mobile */
+    }
+    #legend.show { display: block; }
+    #legend-toggle { display: block; }
+
+    /* Stats panel */
+    #stats-panel {
+        bottom: auto; top: 48px; right: 8px; width: 180px;
+        font-size: 10px; padding: 8px;
+    }
+    #stats-panel h4 { font-size: 11px; }
+
+    /* Compass */
+    #compass { top: 48px; left: 8px; }
+    .compass-ring { width: 50px; height: 50px; }
+    .compass-needle { height: 18px; }
+    .compass-n, .compass-s, .compass-e, .compass-w { font-size: 8px; }
+
+    /* Info panel */
+    #info-panel {
+        top: auto; bottom: 0; left: 0; right: 0; width: 100%;
+        max-height: 50vh; border-radius: 12px 12px 0 0;
+    }
+
+    /* Altitude bar */
+    #altitude-bar { right: 8px; bottom: 8px; }
+    .alt-gradient { width: 100px; }
+    .alt-label { font-size: 8px; }
+}
+
+@media (max-width: 480px) {
+    .controls-top .btn:not(.active) { display: none; }
+    #stats-panel { width: 150px; }
+    #legend { width: 190px; }
+}
