@@ -21,10 +21,10 @@
     <div id="top-bar">
         <div class="logo">MAYOT RESORT <span class="subtitle">Яремче · Карпати · 3D BIM</span></div>
         <div class="controls-top">
-            <button class="btn active" data-view="all">Всі стадії</button>
-            <button class="btn" data-view="s1a">Stage 1A</button>
-            <button class="btn" data-view="s2">Stage 2</button>
-            <button class="btn" data-view="s3">Stage 3</button>
+            <button class="btn active" data-view="all">Загальний вид</button>
+            <button class="btn" data-view="s1a">MAYOT Tower</button>
+            <button class="btn" data-view="lift">Витяг + Траса</button>
+            <button class="btn" data-view="parking">Паркінг + Сервіси</button>
         </div>
     </div>
 
@@ -38,29 +38,47 @@
     <!-- Legend -->
     <div id="legend" class="panel">
         <h4>Легенда</h4>
-        <div class="legend-item"><span class="swatch" style="background:#2B5C3F"></span> Stage 1A — SPA Retreat (30 keys)</div>
-        <div class="legend-item"><span class="swatch" style="background:#C4A882"></span> Stage 2 — Mountain Lodge (48 keys)</div>
-        <div class="legend-item"><span class="swatch" style="background:#9B8E7E"></span> Stage 3 — Family Resort (135 keys)</div>
-        <div class="legend-item"><span class="swatch" style="background:#4A90D9"></span> Водні об'єкти</div>
-        <div class="legend-item"><span class="swatch" style="background:#E8DFD5"></span> Amenities / F&B</div>
-        <div class="legend-item"><span class="swatch" style="background:#666"></span> Service (LEFT spine)</div>
+        <div class="legend-item"><span class="swatch" style="background:#FFD700"></span> MAYOT Tower (79м, 21F, 213 keys)</div>
+        <div class="legend-item"><span class="swatch" style="background:#7B7068"></span> Паркінг 500 авто (2 рівні)</div>
+        <div class="legend-item"><span class="swatch" style="background:#E8E4E0"></span> Станція Doppelmayr D-Line (18м)</div>
+        <div class="legend-item"><span class="swatch" style="background:#4488FF"></span> Ski Lift Telemix (920–1200м)</div>
+        <div class="legend-item"><span class="swatch" style="background:#4488FF"></span> Blue Run №1 (~120м ширина коридору)</div>
+        <div class="legend-item"><span class="swatch" style="background:#7B6B5F"></span> Ski Rental · Lockers · Ski School</div>
+        <div class="legend-item"><span class="swatch" style="background:#6B5B4F"></span> Ресторан · Кафе · Après-ski</div>
+        <div class="legend-item"><span class="swatch" style="background:#8B6B4A"></span> ADLER Lodge ALPE (30 rooms, дерево)</div>
+        <div class="legend-item"><span class="swatch" style="background:#6B6B6B"></span> AKI Family Resort (70 suites, cubist)</div>
+        <div class="legend-item"><span class="swatch" style="background:#CC3333"></span> TechnoAlpin TR10 (снігові гармати)</div>
         <hr>
+        <strong style="font-size:11px;color:#8a8;">Об'єкти:</strong>
+        <label><input type="checkbox" id="toggleS1A" checked> 🏨 Stage 1A · SPA Retreat</label>
+        <label><input type="checkbox" id="toggleMAYOT1" checked> 🏢 MAYOT Tower · Stage 2</label>
+        <label><input type="checkbox" id="toggleMAYOT2" checked> 🏢 MAYOT Tower · Parking</label>
+        <label><input type="checkbox" id="toggleADLER" checked> 🏡 ADLER Lodge</label>
+        <label><input type="checkbox" id="toggleAKI" checked> 🏨 AKI Resort</label>
+        <label><input type="checkbox" id="toggleLift" checked> 🚡 Витяг + Станції</label>
+        <label><input type="checkbox" id="toggleRun" checked> ⛷ Траса</label>
+        <label><input type="checkbox" id="toggleParking" checked> 🅿️ Паркінг + Сервіси</label>
+        <label><input type="checkbox" id="toggleGuns" checked> ❄️ Снігові гармати</label>
+        <hr>
+        <strong style="font-size:11px;color:#8a8;">Шари:</strong>
+        <label><input type="checkbox" id="toggleAllLabels" checked> 📝 Всі написи</label>
         <label><input type="checkbox" id="toggleContours" checked> Горизонталі 10м</label>
         <label><input type="checkbox" id="toggleLabels" checked> Підписи висот</label>
         <label><input type="checkbox" id="toggleTrees" checked> Дерева</label>
         <label><input type="checkbox" id="toggleZones" checked> Зони L/C/R</label>
+        <label><input type="checkbox" id="toggleDimGrid" checked> Сітка розмірів</label>
     </div>
 
     <!-- Stats -->
     <div id="stats-panel" class="panel">
         <h4>Параметри ділянки</h4>
-        <div class="stat-row"><span>Площа:</span><span>4.8 га (48,000 м²)</span></div>
-        <div class="stat-row"><span>Розмір:</span><span>~186 × 421 м</span></div>
+        <div class="stat-row"><span>Площа:</span><span>5.36 га (53,561 м²)</span></div>
+        <div class="stat-row"><span>Розмір:</span><span>186 × 422 м</span></div>
         <div class="stat-row"><span>Перепад:</span><span>80 м (920–1000 м)</span></div>
         <div class="stat-row"><span>Ухил:</span><span>~20%</span></div>
         <div class="stat-row"><span>Всього keys:</span><span>213</span></div>
         <div class="stat-row"><span>Sellable:</span><span>11,747 м²</span></div>
-        <div class="stat-row"><span>Паркінг:</span><span>265 місць</span></div>
+        <div class="stat-row"><span>Паркінг:</span><span>500 авто (2 рівні)</span></div>
     </div>
 
     <!-- Compass -->
@@ -74,11 +92,14 @@
         </div>
     </div>
 
-    <!-- Altitude indicator -->
+    <!-- Altitude indicator with vegetation zones -->
     <div id="altitude-bar">
-        <div class="alt-label">1000м</div>
+        <div class="alt-label" style="font-size:9px;color:#c8b48a;">1200м полонина</div>
+        <div class="alt-label" style="font-size:9px;color:#8a9a6a;">1100м криволісся</div>
         <div class="alt-gradient"></div>
-        <div class="alt-label">920м</div>
+        <div class="alt-label" style="font-size:9px;color:#3a6030;">1000м смереки</div>
+        <div class="alt-label" style="font-size:9px;color:#2a5020;">920м мішаний ліс</div>
+        <div class="alt-label" style="font-size:9px;color:#1a3510;">860м долина</div>
     </div>
 
     <script type="importmap">
@@ -89,6 +110,6 @@
         }
     }
     </script>
-    <script type="module" src="js/viewer.js"></script>
+    <script type="module" src="js/viewer.js?v=20260327f"></script>
 </body>
 </html>
