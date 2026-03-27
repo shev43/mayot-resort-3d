@@ -3595,7 +3595,7 @@ function buildTrees() {
     // Generate dense Carpathian forest across entire terrain
     const terrainMinX = -450, terrainMaxX = 320;
     const terrainMinZ = -1450, terrainMaxZ = 180;
-    const forestDensity = 12; // meters between trees (dense conifer forest)
+    const forestDensity = 18; // meters between trees (lighter for performance)
     let forestCount = 0;
 
     // Use seeded random for consistency
