@@ -907,12 +907,12 @@ function buildSkiLift() {
     cplxGroup.add(skiZone);
 
     // Finish line (red, at z ~ -38 where station starts)
-    const finishLine = new THREE.Mesh(
+    const finishLine2 = new THREE.Mesh(
         new THREE.BoxGeometry(pkW - 6, 0.05, 1.5),
         new THREE.MeshStandardMaterial({ color: 0xFF2222 })
     );
-    finishLine.position.set(pkX, roofY + 0.2, -38);
-    cplxGroup.add(finishLine);
+    finishLine2.position.set(pkX, roofY + 0.2, -38);
+    cplxGroup.add(finishLine2);
 
     // Safety nets along ski zone edges
     const netMat = new THREE.MeshStandardMaterial({ color: 0xFF6600, transparent: true, opacity: 0.6 });
@@ -1073,41 +1073,41 @@ function buildSkiLift() {
 
     // === SECTION A: LIFT STATION (right side, +X local) ===
     // D-Line style: white concrete box, glass end-wall
-    const stW = 16, stD = 10, stH = 6;
-    const stX = plinthW / 2 - stW / 2 - 2; // right side
+    const usStW = 16, usStD = 10, usStH = 6;
+    const stX = plinthW / 2 - usStW / 2 - 2; // right side
 
     // Station box
-    const stBox = new THREE.Mesh(new THREE.BoxGeometry(stW, stH, stD), mWhiteUS);
-    stBox.position.set(stX, plinthH + stH / 2, 0);
+    const stBox = new THREE.Mesh(new THREE.BoxGeometry(usStW, usStH, usStD), mWhiteUS);
+    stBox.position.set(stX, plinthH + usStH / 2, 0);
     usGroup.add(stBox);
 
     // Glass end-wall (facing valley)
     const stGlass = new THREE.Mesh(
-        new THREE.PlaneGeometry(stW - 0.5, stH - 0.5),
+        new THREE.PlaneGeometry(usStW - 0.5, usStH - 0.5),
         mGlassUS
     );
-    stGlass.position.set(stX, plinthH + stH / 2, stD / 2 + 0.01);
+    stGlass.position.set(stX, plinthH + usStH / 2, usStD / 2 + 0.01);
     usGroup.add(stGlass);
 
     // Barrel-vault mini-roof on station
     for (let i = 0; i <= 8; i++) {
         const a = (i / 8) * Math.PI;
         const ry = Math.sin(a) * 2;
-        const rz = Math.cos(a) * (stD / 2 + 0.5);
-        const rib = new THREE.Mesh(new THREE.BoxGeometry(stW + 1, 0.06, 0.06), mSteelUS);
-        rib.position.set(stX, plinthH + stH + ry, rz);
+        const rz = Math.cos(a) * (usStD / 2 + 0.5);
+        const rib = new THREE.Mesh(new THREE.BoxGeometry(usStW + 1, 0.06, 0.06), mSteelUS);
+        rib.position.set(stX, plinthH + usStH + ry, rz);
         usGroup.add(rib);
     }
 
     // Cable tower + bull wheel
     const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.8, 14, 8), mSteelUS);
-    tower.position.set(stX + stW / 2 - 1, plinthH + 7, 0);
+    tower.position.set(stX + usStW / 2 - 1, plinthH + 7, 0);
     usGroup.add(tower);
 
-    const wheel = new THREE.Mesh(new THREE.TorusGeometry(2, 0.3, 8, 24), mBlackUS);
-    wheel.position.set(stX + stW / 2 - 1, plinthH + 14, 0);
-    wheel.rotation.y = Math.PI / 2;
-    usGroup.add(wheel);
+    const upperWheel = new THREE.Mesh(new THREE.TorusGeometry(2, 0.3, 8, 24), mBlackUS);
+    upperWheel.position.set(stX + usStW / 2 - 1, plinthH + 14, 0);
+    upperWheel.rotation.y = Math.PI / 2;
+    usGroup.add(upperWheel);
 
     // === SECTION B: PARDORAMA RESTAURANT (center) ===
     const rW = 30, rD = 16, rFloors = 3, rFloorH = 3.5;
