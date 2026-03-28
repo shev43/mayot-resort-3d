@@ -39,7 +39,7 @@ let scene, camera, renderer, controls;
 // Expose for debugging
 window.__camera = null;
 window.__controls = null;
-let terrainMesh, contourGroup, labelGroup, treeGroup, zoneGroup;
+let terrainMesh, contourGroup, labelGroup, treeGroup, zoneGroup, lakeGroup;
 let buildingGroups = { s1a: null, s2: null, s3: null };
 let elevData = null;
 let raycaster = new THREE.Raycaster();
@@ -1820,6 +1820,396 @@ function buildSnowGuns() {
 // Pardorama is now integrated into upper station in buildSkiLift()
 function buildPardorama() { return null; }
 
+// ============================================================
+// LAKE — Озеро (~20 000 м³)
+// KMZ location: lon=24.500530 lat=48.453592 → scene X=154.2, Z=-84.0
+// Footprint: a=50m, b=40m ellipse + organic perturbation ≈ 5 000 m²
+// Avg depth 4m → volume ≈ 20 000 m³
+// ============================================================
+function buildLake() {
+    const lakeGroup = new THREE.Group();
+    lakeGroup.name = 'Lake_Ozero';
+
+    // Lake centre — east-centre of site (Z=-190 ≈ 955m elev)
+    const cx = 108.0;   // moved west so east beach stays inside site boundary
+    const cz = -190.0;
+    const baseY = sampleTerrainY(cx, cz);
+    const waterY = baseY + 0.8; // sit slightly above terrain surface
+
+    // Organic ellipse: smaller — a=30m, b=22m
+    const SEG = 72;
+    const RA = 30, RB = 22; // semi-axes metres
+    const harmonics = [
+        { amp: 4,  freq: 3,  phase: 0.70 },
+        { amp: 2.5,freq: 5,  phase: 1.35 },
+        { amp: 1.5,freq: 7,  phase: 2.10 },
+        { amp: 1,  freq: 11, phase: 0.42 },
+        { amp: 0.8,freq: 13, phase: 3.00 },
+    ];
+    // perturb[0..SEG] — one extra for closed loop
+    const perturb = [];
+    for (let i = 0; i <= SEG; i++) {
+        const t = (i / SEG) * Math.PI * 2;
+        let r = 0;
+        for (const h of harmonics) r += h.amp * Math.sin(h.freq * t + h.phase);
+        perturb.push(r);
+    }
+
+    // Helper: ellipse radius at angle t
+    function ellR(t) {
+        return (RA * RB) / Math.sqrt((RB * Math.cos(t)) ** 2 + (RA * Math.sin(t)) ** 2);
+    }
+
+    // ---- Water surface (triangle fan, flat at waterY) ----
+    const waterPos = [];
+    const shoreInner = []; // inner shore edge points
+
+    for (let i = 0; i < SEG; i++) {
+        const t1 = (i / SEG) * Math.PI * 2;
+        const t2 = ((i + 1) / SEG) * Math.PI * 2;
+        const r1 = ellR(t1) + perturb[i];
+        const r2 = ellR(t2) + perturb[i + 1];
+        const p1x = cx + r1 * Math.cos(t1);
+        const p1z = cz + r1 * Math.sin(t1);
+        const p2x = cx + r2 * Math.cos(t2);
+        const p2z = cz + r2 * Math.sin(t2);
+        // Triangle: centre → p1 → p2
+        waterPos.push(cx, waterY, cz, p1x, waterY, p1z, p2x, waterY, p2z);
+        shoreInner.push([p1x, p1z]);
+    }
+
+    const waterGeo = new THREE.BufferGeometry();
+    waterGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(waterPos), 3));
+    waterGeo.computeVertexNormals();
+
+    const waterMat = new THREE.MeshStandardMaterial({
+        color: 0x1b6e91,
+        roughness: 0.06,
+        metalness: 0.25,
+        transparent: true,
+        opacity: 0.84,
+        side: THREE.DoubleSide,
+        polygonOffset: true,
+        polygonOffsetFactor: -3,
+        polygonOffsetUnits: -3,
+    });
+    const waterMesh = new THREE.Mesh(waterGeo, waterMat);
+    waterMesh.name = 'Lake_Ozero';
+    lakeGroup.add(waterMesh);
+
+    // ---- Shore band + beach section ----
+    // Beach: EAST side — t centre = 0 (+X = east), half-width 0.75 rad
+    const BEACH_TC      = 0;  // east = +X direction
+    const BEACH_TW      = 0.75;  // ±0.75 rad sector
+    const SHORE_W_BASE  = 5;
+    const BEACH_W_EXTRA = 11;    // beach widens to 16m at centre
+
+    // Angular distance from beach centre, returns blend 0..1
+    function beachBlend(t) {
+        let dt = t - BEACH_TC;
+        // wrap to (-π, π)
+        dt = dt - Math.round(dt / (Math.PI * 2)) * Math.PI * 2;
+        if (Math.abs(dt) >= BEACH_TW) return 0;
+        return Math.sin((1 - Math.abs(dt) / BEACH_TW) * Math.PI * 0.5); // rises 0→1→0
+    }
+
+    const shorePos  = [];
+    const beachPos  = [];
+
+    for (let i = 0; i < SEG; i++) {
+        const t1 = (i / SEG) * Math.PI * 2;
+        const t2 = ((i + 1) / SEG) * Math.PI * 2;
+        const rIn1 = ellR(t1) + perturb[i];
+        const rIn2 = ellR(t2) + perturb[i + 1];
+
+        const b1 = beachBlend(t1), b2 = beachBlend(t2);
+        const sw1 = SHORE_W_BASE + b1 * BEACH_W_EXTRA;
+        const sw2 = SHORE_W_BASE + b2 * BEACH_W_EXTRA;
+
+        const rOut1 = rIn1 + sw1;
+        const rOut2 = rIn2 + sw2;
+
+        const ix1 = cx + rIn1  * Math.cos(t1), iz1 = cz + rIn1  * Math.sin(t1);
+        const ix2 = cx + rIn2  * Math.cos(t2), iz2 = cz + rIn2  * Math.sin(t2);
+        const ox1 = cx + rOut1 * Math.cos(t1), oz1 = cz + rOut1 * Math.sin(t1);
+        const ox2 = cx + rOut2 * Math.cos(t2), oz2 = cz + rOut2 * Math.sin(t2);
+
+        const iy1 = waterY + 0.12, iy2 = waterY + 0.12;
+        const oy1 = sampleTerrainY(ox1, oz1) + 0.08;
+        const oy2 = sampleTerrainY(ox2, oz2) + 0.08;
+
+        // Is this segment part of the beach sector?
+        const isBeach = (b1 + b2) > 0.05;
+        const target = isBeach ? beachPos : shorePos;
+        target.push(ix1,iy1,iz1, ox1,oy1,oz1, ix2,iy2,iz2);
+        target.push(ix2,iy2,iz2, ox1,oy1,oz1, ox2,oy2,oz2);
+    }
+
+    // Regular shore mesh (dark pebble)
+    const shoreGeo = new THREE.BufferGeometry();
+    shoreGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(shorePos), 3));
+    shoreGeo.computeVertexNormals();
+    const shoreMesh = new THREE.Mesh(shoreGeo, new THREE.MeshStandardMaterial({
+        color: 0x8a7a5e, roughness: 0.95, metalness: 0.0,
+        polygonOffset: true, polygonOffsetFactor: -1,
+    }));
+    shoreMesh.name = 'Lake_Shore';
+    lakeGroup.add(shoreMesh);
+
+    // Beach mesh (pale warm sand)
+    const beachGeo = new THREE.BufferGeometry();
+    beachGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(beachPos), 3));
+    beachGeo.computeVertexNormals();
+    const beachMesh = new THREE.Mesh(beachGeo, new THREE.MeshStandardMaterial({
+        color: 0xe8d5a3, roughness: 0.88, metalness: 0.0,
+        polygonOffset: true, polygonOffsetFactor: -2,
+    }));
+    beachMesh.name = 'Lake_Beach';
+    lakeGroup.add(beachMesh);
+
+    // ---- Wet-sand strip right at water's edge (beach side only) ----
+    const wetPos = [];
+    const WET_W = 2.5;
+    for (let i = 0; i < SEG; i++) {
+        const t1 = (i / SEG) * Math.PI * 2;
+        const t2 = ((i + 1) / SEG) * Math.PI * 2;
+        if ((beachBlend(t1) + beachBlend(t2)) < 0.1) continue;
+        const rIn1 = ellR(t1) + perturb[i];
+        const rIn2 = ellR(t2) + perturb[i + 1];
+        const rW1  = rIn1 + WET_W, rW2 = rIn2 + WET_W;
+        const ix1 = cx + rIn1 * Math.cos(t1), iz1 = cz + rIn1 * Math.sin(t1);
+        const ix2 = cx + rIn2 * Math.cos(t2), iz2 = cz + rIn2 * Math.sin(t2);
+        const wx1 = cx + rW1  * Math.cos(t1), wz1 = cz + rW1  * Math.sin(t1);
+        const wx2 = cx + rW2  * Math.cos(t2), wz2 = cz + rW2  * Math.sin(t2);
+        const y = waterY + 0.15;
+        wetPos.push(ix1,y,iz1, wx1,y,wz1, ix2,y,iz2);
+        wetPos.push(ix2,y,iz2, wx1,y,wz1, wx2,y,wz2);
+    }
+    if (wetPos.length) {
+        const wetGeo = new THREE.BufferGeometry();
+        wetGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(wetPos), 3));
+        wetGeo.computeVertexNormals();
+        lakeGroup.add(new THREE.Mesh(wetGeo, new THREE.MeshStandardMaterial({
+            color: 0xc8a870, roughness: 0.70, metalness: 0.05,
+            transparent: true, opacity: 0.9,
+            polygonOffset: true, polygonOffsetFactor: -3,
+        })));
+    }
+
+    // ---- PIER (пірс) — extends from beach into water, t≈0 (east side) ----
+    {
+        const woodMat  = new THREE.MeshStandardMaterial({ color: 0x8B5E3C, roughness: 0.85, metalness: 0.0 });
+        const postMat  = new THREE.MeshStandardMaterial({ color: 0x6B4226, roughness: 0.9,  metalness: 0.0 });
+
+        const PIER_W   = 2.4;   // width metres
+        const PIER_LEN = 14;    // total length
+        const DECK_Y   = waterY + 1.1;
+
+        // Pier axis: EAST shore (t=0 = +X), extending westward (-X) into lake
+        const pierT    = 0;
+        const pierDir  = new THREE.Vector2(1, 0); // +X = east
+        const rEdge    = ellR(0) + perturb[0];
+        const pStartX  = cx + (rEdge + 2) * pierDir.x;
+        const pStartZ  = cz + (rEdge + 2) * pierDir.y;
+        const pEndX    = cx + (rEdge - PIER_LEN + 2) * pierDir.x;
+        const pEndZ    = cz + (rEdge - PIER_LEN + 2) * pierDir.y;
+
+        // Deck (flat box)
+        const deckGeo = new THREE.BoxGeometry(PIER_LEN, 0.18, PIER_W);
+        const deck    = new THREE.Mesh(deckGeo, woodMat);
+        deck.position.set((pStartX + pEndX) / 2, DECK_Y, (pStartZ + pEndZ) / 2);
+        deck.rotation.y = -pierT; // align with pier axis
+        deck.name = 'Lake_Pier';
+        lakeGroup.add(deck);
+
+        // Plank lines across deck
+        const plankMat = new THREE.LineBasicMaterial({ color: 0x5a3a1a });
+        for (let p = -PIER_LEN / 2 + 0.6; p < PIER_LEN / 2; p += 0.55) {
+            const hw = PIER_W / 2;
+            const pts = [
+                new THREE.Vector3(p, 0.1, -hw),
+                new THREE.Vector3(p, 0.1,  hw),
+            ];
+            const lg = new THREE.BufferGeometry().setFromPoints(pts);
+            const pl = new THREE.Line(lg, plankMat);
+            pl.position.set((pStartX + pEndX) / 2, DECK_Y, (pStartZ + pEndZ) / 2);
+            pl.rotation.y = -pierT;
+            pl.name = 'Lake_Pier';
+            lakeGroup.add(pl);
+        }
+
+        // Posts (pilings) every 3.5m
+        const postGeo = new THREE.CylinderGeometry(0.12, 0.15, 3.5, 6);
+        for (let p = -PIER_LEN / 2 + 1; p <= PIER_LEN / 2 - 0.5; p += 3.5) {
+            for (const side of [-PIER_W / 2 + 0.2, PIER_W / 2 - 0.2]) {
+                const post = new THREE.Mesh(postGeo, postMat);
+                const lx = p, lz = side;
+                const cos = Math.cos(-pierT), sin = Math.sin(-pierT);
+                const wx = (pStartX + pEndX) / 2 + lx * cos - lz * sin;
+                const wz = (pStartZ + pEndZ) / 2 + lx * sin + lz * cos;
+                post.position.set(wx, DECK_Y - 1.75, wz);
+                post.name = 'Lake_Pier';
+                lakeGroup.add(post);
+            }
+        }
+
+        // Handrail posts + rail
+        const railPostGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.0, 5);
+        const railMat = new THREE.MeshStandardMaterial({ color: 0xA0622A, roughness: 0.7 });
+        const railPts = [[], []]; // [left, right]
+        for (let p = -PIER_LEN / 2 + 0.3; p <= PIER_LEN / 2; p += 1.2) {
+            for (let s = 0; s < 2; s++) {
+                const side = s === 0 ? -(PIER_W / 2 - 0.1) : (PIER_W / 2 - 0.1);
+                const rp = new THREE.Mesh(railPostGeo, railMat);
+                const lx = p, lz = side;
+                const cos = Math.cos(-pierT), sin = Math.sin(-pierT);
+                const wx = (pStartX + pEndX) / 2 + lx * cos - lz * sin;
+                const wz = (pStartZ + pEndZ) / 2 + lx * sin + lz * cos;
+                rp.position.set(wx, DECK_Y + 0.5, wz);
+                rp.name = 'Lake_Pier';
+                lakeGroup.add(rp);
+                railPts[s].push(new THREE.Vector3(wx, DECK_Y + 0.95, wz));
+            }
+        }
+        // Continuous handrail lines
+        for (const side of railPts) {
+            const rg = new THREE.BufferGeometry().setFromPoints(side);
+            lakeGroup.add(new THREE.Line(rg, new THREE.LineBasicMaterial({ color: 0x8B4513 })));
+        }
+
+        // Pier-end platform (small square at tip)
+        const tipGeo = new THREE.BoxGeometry(PIER_W + 1.2, 0.18, PIER_W + 1.2);
+        const tip = new THREE.Mesh(tipGeo, woodMat);
+        tip.position.set(pEndX - pierDir.x * 0.6, DECK_Y, pEndZ - pierDir.y * 0.6);
+        tip.name = 'Lake_Pier';
+        lakeGroup.add(tip);
+
+        // Diving post at tip
+        const divGeo = new THREE.CylinderGeometry(0.08, 0.08, 3.5, 6);
+        const div = new THREE.Mesh(divGeo, postMat);
+        div.position.set(pEndX - pierDir.x * 0.6, DECK_Y + 1.75, pEndZ - pierDir.y * 0.6);
+        div.name = 'Lake_Pier';
+        lakeGroup.add(div);
+    }
+
+    // ---- SUN LOUNGERS (лежаки) on beach ----
+    {
+        const frameMat  = new THREE.MeshStandardMaterial({ color: 0xD4A84B, roughness: 0.6, metalness: 0.1 }); // gold aluminium frame
+        const cushMat   = new THREE.MeshStandardMaterial({ color: 0xF5ECD7, roughness: 0.8, metalness: 0.0 }); // cream cushion
+        const umbrellaMat = new THREE.MeshStandardMaterial({ color: 0xC8532A, roughness: 0.7, metalness: 0.0, side: THREE.DoubleSide });
+
+        // Lounger geometry — flat base + angled backrest
+        function makeLounger(px, py, pz, rotY) {
+            const grp = new THREE.Group();
+            grp.name = 'Lake_Lounger';
+            // Base frame
+            grp.add(new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.08, 0.75), frameMat));
+            // Cushion on base
+            const cush = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.1, 0.65), cushMat);
+            cush.position.set(-0.25, 0.09, 0);
+            grp.add(cush);
+            // Backrest (angled ~30°)
+            const back = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.08, 0.65), frameMat);
+            back.position.set(0.64, 0.22, 0);
+            back.rotation.z = 0.52; // ~30°
+            grp.add(back);
+            const backCush = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.09, 0.58), cushMat);
+            backCush.position.set(0.64, 0.27, 0);
+            backCush.rotation.z = 0.52;
+            grp.add(backCush);
+            // Legs
+            for (const lx of [-0.8, 0.8]) for (const lz of [-0.3, 0.3]) {
+                const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.22, 0.06), frameMat);
+                leg.position.set(lx, -0.15, lz);
+                grp.add(leg);
+            }
+            grp.position.set(px, py, pz);
+            grp.rotation.y = rotY;
+            return grp;
+        }
+
+        // Umbrella (parasol)
+        function makeUmbrella(px, py, pz) {
+            const grp = new THREE.Group();
+            grp.name = 'Lake_Lounger';
+            // Pole
+            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.8, 6), frameMat);
+            pole.position.set(0, 1.4, 0);
+            grp.add(pole);
+            // Canopy (flat cone segments)
+            const coneGeo = new THREE.ConeGeometry(1.8, 0.5, 8, 1, true);
+            const cone = new THREE.Mesh(coneGeo, umbrellaMat);
+            cone.position.set(0, 2.85, 0);
+            grp.add(cone);
+            grp.position.set(px, py, pz);
+            return grp;
+        }
+
+        // Loungers alongside the pier on the east beach
+        // Pier runs from x≈cx+rEdge+2 westward, centred on cz
+        // Place loungers in 2 rows (north and south of pier) + umbrellas
+        const pEdgeX = cx + ellR(0) + perturb[0] + 2.5; // east shore x (t=0)
+        const loungerBaseY = waterY + 0.28;
+
+        // Row south of pier (z > cz, positive offset)
+        const loungerRows = [
+            { xOff: 0,   zOff:  3.0, ry: -Math.PI/2 },
+            { xOff: 3.5, zOff:  3.0, ry: -Math.PI/2 },
+            { xOff: 7.0, zOff:  3.0, ry: -Math.PI/2 },
+            // Row north of pier (z < cz, negative offset)
+            { xOff: 0,   zOff: -3.0, ry:  Math.PI/2 },
+            { xOff: 3.5, zOff: -3.0, ry:  Math.PI/2 },
+            { xOff: 7.0, zOff: -3.0, ry:  Math.PI/2 },
+        ];
+        for (const { xOff, zOff, ry } of loungerRows) {
+            const lx = pEdgeX + xOff;
+            const lz = cz + zOff;
+            const ly = sampleTerrainY(lx, lz) + 0.28;
+            lakeGroup.add(makeLounger(lx, ly, lz, ry));
+        }
+
+        // 2 umbrellas — one each side of pier entrance
+        const umbDefs = [
+            [ pEdgeX + 3.5, cz +  5.5 ],
+            [ pEdgeX + 3.5, cz -  5.5 ],
+        ];
+        for (const [ux, uz] of umbDefs) {
+            const uy = sampleTerrainY(ux, uz);
+            lakeGroup.add(makeUmbrella(ux, uy, uz));
+        }
+    }
+
+    // ---- Water edge outline ----
+    const edgePts = [];
+    for (let i = 0; i <= SEG; i++) {
+        const t = (i / SEG) * Math.PI * 2;
+        const r = ellR(t) + perturb[Math.min(i, SEG)];
+        edgePts.push(new THREE.Vector3(cx + r * Math.cos(t), waterY + 0.4, cz + r * Math.sin(t)));
+    }
+    const edgeGeo = new THREE.BufferGeometry().setFromPoints(edgePts);
+    const edgeLine = new THREE.Line(edgeGeo, new THREE.LineBasicMaterial({ color: 0x0d4f6e }));
+    edgeLine.name = 'Lake_Edge';
+    lakeGroup.add(edgeLine);
+
+    // ---- Sprite label ----
+    const lkCanvas = document.createElement('canvas');
+    lkCanvas.width = 256; lkCanvas.height = 64;
+    const lkCtx = lkCanvas.getContext('2d');
+    lkCtx.clearRect(0, 0, 256, 64);
+    lkCtx.font = 'bold 24px Arial';
+    lkCtx.fillStyle = '#7fdfff';
+    lkCtx.textAlign = 'center';
+    lkCtx.fillText('🏞 Озеро', 128, 42);
+    const lkSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(lkCanvas), transparent: true }));
+    lkSprite.position.set(cx, waterY + 18, cz);
+    lkSprite.scale.set(44, 11, 1);
+    lkSprite.name = 'Lake_Label';
+    lakeGroup.add(lkSprite);
+
+    scene.add(lakeGroup);
+    return lakeGroup;
+}
+
 // SKI RUN — Легка синя №1 (120м) + corridor
 // ============================================================
 function buildSkiRun() {
@@ -2234,6 +2624,9 @@ async function init() {
 
     // AKI Family Resort — below ADLER
     buildAKIResort();
+
+    // Lake — Озеро (~20 000 м³)
+    lakeGroup = buildLake();
 
     // Ski lift: lower (920m) → upper (1200m) stations + cable
     buildSkiLift();
@@ -4190,6 +4583,7 @@ function setupEvents() {
         });
     }
     addObjToggle('togglePardorama', 'Pardorama');
+    addObjToggle('toggleLake', 'Lake_');
 
     // Lift toggle — includes Ski_Lift and Telemix
     const toggleLift = document.getElementById('toggleLift');
